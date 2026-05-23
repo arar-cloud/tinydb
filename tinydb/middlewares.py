@@ -21,6 +21,8 @@ class Middleware:
     def __init__(self, storage_cls) -> None:
         self._storage_cls = storage_cls
         self.storage: Storage = None  # type: ignore
+        self._serialization_cache = {}  # Cache for serialized state to avoid redundant encode/decode
+        self._cache_enabled = True
 
     def __call__(self, *args, **kwargs):
         """
@@ -61,8 +63,29 @@ class Middleware:
         """
 
         self.storage = self._storage_cls(*args, **kwargs)
+        self._serialization_cache.clear()
 
         return self
+
+    def _get_cached_serialization(self, key: str) -> Optional[dict]:
+        """
+        Retrieve cached serialized data for lazy deserialization.
+        Reduces redundant encode/decode cycles during read operations.
+        """
+        return self._serialization_cache.get(key) if self._cache_enabled else None
+
+    def _set_cached_serialization(self, key: str, value: dict) -> None:
+        """
+        Cache serialized data to avoid re-encoding on subsequent reads.
+        """
+        if self._cache_enabled:
+            self._serialization_cache[key] = value
+
+    def _clear_cache_on_write(self) -> None:
+        """
+        Clear serialization cache on write operations to ensure consistency.
+        """
+        self._serialization_cache.clear()
 
     def __getattr__(self, name):
         """

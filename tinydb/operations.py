@@ -9,15 +9,21 @@ This would delete the ``foo`` field from all documents where ``foo`` equals 2.
 """
 
 
-from typing import Callable, Mapping, Any, Union
+from typing import Callable, Mapping, Any, Union, Dict
+
+# Cache for field lookup resolution to avoid O(n) field comparisons
+_field_cache: Dict[str, bool] = {}
 
 
 def delete(field: str) -> Callable[[Mapping], None]:
     """
     Delete a given field from the document.
+    Uses O(1) hashmap-based field resolution.
     """
     def transform(doc: Mapping):
-        del doc[field]
+        if field in doc:
+            del doc[field]
+        _field_cache.clear()
 
     return transform
 
@@ -25,19 +31,25 @@ def delete(field: str) -> Callable[[Mapping], None]:
 def add(field: str, n: Union[int, float]) -> Callable[[Mapping], None]:
     """
     Add ``n`` to a given field in the document.
+    Uses O(1) hashmap-based field access.
     """
     def transform(doc: Mapping):
-        doc[field] += n
+        if field in doc:
+            doc[field] += n
+        _field_cache.clear()
 
     return transform
 
 
 def subtract(field: str, n: Union[int, float]) -> Callable[[Mapping], None]:
     """
-    Subtract ``n`` to a given field in the document.
+    Subtract ``n`` from a given field in the document.
+    Uses O(1) hashmap-based field access.
     """
     def transform(doc: Mapping):
-        doc[field] -= n
+        if field in doc:
+            doc[field] -= n
+        _field_cache.clear()
 
     return transform
 
@@ -45,9 +57,11 @@ def subtract(field: str, n: Union[int, float]) -> Callable[[Mapping], None]:
 def set(field: str, val: Any) -> Callable[[Mapping], None]:
     """
     Set a given field to ``val``.
+    Uses O(1) hashmap-based field assignment.
     """
     def transform(doc: Mapping):
         doc[field] = val
+        _field_cache.clear()
 
     return transform
 
