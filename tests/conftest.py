@@ -36,7 +36,11 @@ def db(request, tmp_path: Path):
     db_.drop_tables()
     db_.insert_multiple({'int': 1, 'char': c} for c in 'abc')
 
+    logger.debug(f"Database fixture created: {request.param}")
     yield db_
+    logger.debug(f"Database fixture teardown: {request.param}")
+    if hasattr(db_, 'close'):
+        db_.close()
 
 
 @pytest.fixture
@@ -95,3 +99,57 @@ def pytest_sessionfinish(session: Any, exitstatus: int) -> None:
     logger.info(f"Test session finished with exit status: {exitstatus}")
     logger.info(f"Session timestamp: {datetime.now().isoformat()}")
     logger.info(f"{'='*60}\n")
+
+
+@pytest.fixture
+def db_with_snapshot(db: TinyDB) -> Dict[str, Any]:
+    """Capture database state snapshot for debugging."""
+    snapshot: Dict[str, Any] = {
+        'tables': {},
+        'timestamp': datetime.now().isoformat(),
+        'storage_type': type(db.storage).__name__
+    }
+    for table_name in db.tables():
+        table = db.table(table_name)
+        snapshot['tables'][table_name] = list(table.all())
+    logger.debug(f"Database snapshot captured: {snapshot}")
+    yield snapshot
+
+
+@pytest.fixture
+def backend_state_fixture() -> Dict[str, Any]:
+    """Fixture for capturing backend state during cross-layer tests."""
+    state: Dict[str, Any] = {
+        'operations': [],
+        'errors': [],
+        'start_time': datetime.now().isoformat()
+    }
+    logger.debug("Backend state fixture initialized")
+    yield state
+    logger.debug(f"Backend state at teardown: {state}")
+
+
+@pytest.fixture
+def transaction_fixture(db: TinyDB) -> Dict[str, Any]:
+    """Fixture for testing database transactions and consistency."""
+    transaction_context: Dict[str, Any] = {
+        'initial_count': len(db.all()),
+        'operations': [],
+        'rollback_data': None
+    }
+    logger.debug(f"Transaction fixture initialized with {transaction_context['initial_count']} records")
+    yield transaction_context
+    logger.debug(f"Transaction fixture teardown: {transaction_context}")
+
+
+@pytest.fixture
+def communication_channel_fixture() -> Dict[str, Any]:
+    """Fixture for simulating mobile/web client communication with backend."""
+    channel: Dict[str, Any] = {
+        'messages': [],
+        'errors': [],
+        'latency_ms': 0
+    }
+    logger.debug("Communication channel fixture initialized for client-backend testing")
+    yield channel
+    logger.debug(f"Communication channel fixture teardown: {len(channel['messages'])} messages, {len(channel['errors'])} errors")
