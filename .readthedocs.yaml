@@ -1,6 +1,17 @@
 version: 2
 
 build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.10"
+  jobs:
+    pre_build:
+      - name: Run stability tests
+        commands: python3 -m pytest tests/ -m stability --tb=short -q
+      - name: Validate coverage floors
+        commands: python3 -m pytest tests/ --cov=tinydb --cov-fail-under=75 -q
+
+build:
   os: ubuntu-24.04
   tools:
     python: "3.12"
