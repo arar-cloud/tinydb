@@ -83,3 +83,73 @@ def resource_monitor(tmp_path: Path) -> Iterator[dict]:
     fd_diff = resources_after['fds'] - resources_before['fds']
     if fd_diff > 2:
         pytest.warns(UserWarning, match="File descriptor count increased")
+
+
+@pytest.fixture
+def corrupted_db_file(tmp_path: Path) -> Path:
+    """Fixture that creates a corrupted database file for integrity testing."""
+    db_path = tmp_path / 'corrupted.db'
+    
+    # Create a valid database
+    db = TinyDB(db_path, storage=JSONStorage)
+    db.insert({'test': 'data'})
+    db.close()
+    
+    # Corrupt the file by truncating it midway
+    with open(db_path, 'r+b') as f:
+        current_size = f.seek(0, 2)
+        f.truncate(current_size // 2)
+    
+    return db_path
+
+
+@pytest.fixture
+def io_error_injector(tmp_path: Path) -> Iterator[dict]:
+    """Fixture to simulate I/O errors and disk full conditions."""
+    import errno
+    from unittest import mock
+    
+    class IOErrorTracker:
+        def __init__(self) -> None:
+            self.error_enabled = False
+            self.error_type = errno.EIO
+            self.call_count = 0
+        
+        def should_raise(self) -> bool:
+            if self.error_enabled:
+                self.call_count += 1
+                return self.call_count % 3 == 0  # Raise on every 3rd call
+            return False
+    
+    tracker = IOErrorTracker()
+    
+    def mock_write(original_write):
+        def wrapper(self, data):
+            if tracker.should_raise():
+                raise OSError(tracker.error_type, "Simulated I/O error")
+            return original_write(self, data)
+        return wrapper
+    
+    yield {'tracker': tracker, 'mock_write': mock_write}
+
+
+@pytest.fixture
+def partial_write_detector(tmp_path: Path) -> Iterator[dict]:
+    """Fixture to detect and validate recovery from partial writes."""
+    detection_data: dict = {'detected_partial_writes': []}
+    
+    def check_file_integrity(db_path: Path) -> bool:
+        """Verify database file is valid JSON and not truncated."""
+        try:
+            import json
+            with open(db_path, 'r') as f:
+                content = f.read().strip()
+                if not content:
+                    return False
+                json.loads(content)
+                return True
+        except (json.JSONDecodeError, IOError):
+            return False
+    
+    detection_data['check_integrity'] = check_file_integrity
+    yield detection_data
