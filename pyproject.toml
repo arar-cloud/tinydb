@@ -41,13 +41,25 @@ dev = [
     "pytest~=9.0",
     "pytest-pycodestyle~=2.3",
     "pytest-cov~=7.0",
+    "pytest-timeout~=2.1",
+    "pytest-xdist~=3.3",
     "pycodestyle~=2.10",
     "sphinx~=8.1",
     "coveralls~=4.0",
     "pyyaml~=6.0",
+    "fault-injector~=0.2",
     "pytest-mypy~=1.0 ; platform_python_implementation != 'PyPy'",
     "types-PyYAML~=6.0",
 ]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+
+[tool.coverage.report]
+fail_under = 75
+skip_covered = false
+show_missing = true
 
 [tool.hatch.build.targets.sdist]
 include = [
