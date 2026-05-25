@@ -39,8 +39,15 @@ def db(request, tmp_path: Path):
     logger.debug(f"Database fixture created: {request.param}")
     yield db_
     logger.debug(f"Database fixture teardown: {request.param}")
+    try:
+        db_.drop_tables()
+    except Exception as e:
+        logger.warning(f"Error dropping tables during cleanup: {e}")
     if hasattr(db_, 'close'):
-        db_.close()
+        try:
+            db_.close()
+        except Exception as e:
+            logger.warning(f"Error closing database: {e}")
 
 
 @pytest.fixture
