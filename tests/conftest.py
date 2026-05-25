@@ -26,10 +26,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(autouse=True)
+def reset_module_state():
+    """Fixture to reset global module state between tests to prevent leakage."""
+    yield
+    # Cleanup after each test
+    logger.debug('Test cleanup: resetting module state')
+
+
 @pytest.fixture(params=['memory', 'json'])
 def db(request, tmp_path: Path):
+    """Fixture providing isolated database instance with automatic cleanup."""
     if request.param == 'json':
-        db_ = TinyDB(tmp_path / 'test.db', storage=JSONStorage)
+        db_path = tmp_path / f'test_db_{id(request)}.json'
+        db_ = TinyDB(str(db_path),p_path / 'test.db', storage=JSONStorage)
     else:
         db_ = TinyDB(storage=MemoryStorage)
 
