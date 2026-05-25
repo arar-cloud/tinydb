@@ -52,7 +52,15 @@ def db(request, tmp_path: Path):
 
 @pytest.fixture
 def storage():
-    return CachingMiddleware(MemoryStorage)()
+    storage_instance = CachingMiddleware(MemoryStorage)()
+    logger.debug("Storage fixture created with CachingMiddleware")
+    yield storage_instance
+    logger.debug("Storage fixture teardown")
+    if hasattr(storage_instance, '_storage') and hasattr(storage_instance._storage, 'close'):
+        try:
+            storage_instance._storage.close()
+        except Exception as e:
+            logger.warning(f"Error closing storage: {e}")
 
 
 def pytest_configure(config: Any) -> None:
