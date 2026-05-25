@@ -41,6 +41,7 @@ dev = [
     "pytest~=9.0",
     "pytest-pycodestyle~=2.3",
     "pytest-cov~=7.0",
+    "pytest-xdist~=3.0",
     "pycodestyle~=2.10",
     "sphinx~=8.1",
     "coveralls~=4.0",
@@ -57,6 +58,30 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 include = ["tinydb"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "-v",
+    "--cov=tinydb",
+    "--strict-markers",
+]
+markers = [
+    "backend: backend-specific tests",
+    "mobile: mobile-specific tests",
+    "web: web-specific tests",
+    "integration: integration tests",
+    "slow: slow tests",
+]
+minversion = "7.0"
+
+[tool.mypy]
+strict = true
+show_error_codes = true
+show_column_numbers = true
+warn_return_any = true
+warn_unused_configs = true
+plugins = ["tinydb.mypy_plugin"]
 
 [build-system]
 requires = ["hatchling"]
