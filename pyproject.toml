@@ -47,6 +47,7 @@ dev = [
     "pyyaml>=6.0.0,<7.0.0",
     "pytest-mypy>=1.0.0,<2.0.0 ; platform_python_implementation != 'PyPy'",
     "types-PyYAML>=6.0.0,<7.0.0",
+    "mypy>=1.0.0,<2.0.0",
 ]
 
 [tool.hatch.build.targets.sdist]
