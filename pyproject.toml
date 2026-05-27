@@ -60,6 +60,10 @@ include = [
 [tool.hatch.build.targets.wheel]
 include = ["tinydb"]
 
+[tool.pytest.ini_options]
+addopts = "--verbose --cov-append --cov-report term --cov tinydb"
+pythonoptimize = 1
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
