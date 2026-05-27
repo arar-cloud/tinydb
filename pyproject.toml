@@ -41,6 +41,8 @@ dev = [
     "pytest~=9.0",
     "pytest-pycodestyle~=2.3",
     "pytest-cov~=7.0",
+    "pytest-benchmark>=4.0",
+    "memory-profiler>=0.60",
     "pycodestyle~=2.10",
     "sphinx~=8.1",
     "coveralls~=4.0",
@@ -57,6 +59,10 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 include = ["tinydb"]
+
+[tool.pytest.ini_options]
+addopts = "--verbose --cov-append --cov-report term --cov tinydb"
+pythonoptimize = 1
 
 [build-system]
 requires = ["hatchling"]
