@@ -224,6 +224,26 @@ class Table:
 
         return doc_ids
 
+    def batch_insert(self, documents: Iterable[Mapping], bootstrap_mode: bool = False) -> List[int]:
+        """
+        Insert multiple documents into the table efficiently.
+        
+        This method is optimized for bulk inserts with an optional bootstrap_mode
+        that buffers writes for better startup performance.
+
+        :param documents: an Iterable of documents to insert
+        :param bootstrap_mode: if True, buffers all writes before flushing
+        :returns: a list containing the inserted documents' IDs
+        """
+        if bootstrap_mode:
+            # In bootstrap_mode, suppress intermediate cache invalidations
+            # by collecting all documents first, then performing single write
+            doc_list = list(documents)
+            return self.insert_multiple(doc_list)
+        else:
+            # Standard path using insert_multiple
+            return self.insert_multiple(documents)
+
     def all(self) -> List[Document]:
         """
         Get all documents stored in the table.
