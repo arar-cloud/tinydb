@@ -7,6 +7,8 @@ import pytest  # type: ignore
 from tinydb.middlewares import CachingMiddleware
 from tinydb.storages import MemoryStorage
 from tinydb import TinyDB, JSONStorage
+import pytest
+from pathlib import Path
 
 
 @pytest.fixture(params=['memory', 'json'])
