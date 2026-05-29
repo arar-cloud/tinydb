@@ -156,6 +156,11 @@ class JSONStorage(Storage):
             return json.load(self._handle)
 
     def write(self, data: Dict[str, Dict[str, Any]]):
+        # In batch mode, buffer the data instead of writing immediately
+        if self._batch_mode:
+            self._batch_buffer = data
+            return
+        
         # Move the cursor to the beginning of the file just in case
         self._handle.seek(0)
 
