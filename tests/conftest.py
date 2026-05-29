@@ -101,5 +101,20 @@ def performance_tracker():
 
 
 @pytest.fixture
+def perf_db(db, performance_tracker):
+    """Database fixture with integrated performance tracking for regression testing.
+    
+    Yields a database instance alongside performance measurement utilities.
+    Use this fixture in tests that require performance baseline verification.
+    Example:
+        def test_insert_performance(perf_db):
+            db, perf = perf_db
+            latency, _ = perf['measure_latency'](db.insert, {'test': 1})
+            perf['assert_latency']('insert_single', latency)
+    """
+    yield (db, performance_tracker)
+
+
+@pytest.fixture
 def storage():
     return CachingMiddleware(MemoryStorage)()
