@@ -86,3 +86,39 @@ def perf_tracker() -> Generator[Dict[str, PerformanceMetrics], None, None]:
         Dictionary to store named PerformanceMetrics results.
     """
     yield {}
+
+
+def assert_performance_baseline(
+    metrics: PerformanceMetrics,
+    baseline: Dict[str, Any],
+    operation_name: str,
+    time_tolerance: float = 1.2,
+    memory_tolerance: float = 1.3,
+) -> None:
+    """Assert that measured performance is within acceptable baselines.
+    
+    Args:
+        metrics: PerformanceMetrics object with measured values
+        baseline: Baseline thresholds dictionary
+        operation_name: Name of the operation being tested
+        time_tolerance: Multiplier for time threshold (e.g., 1.2 = 20% slower acceptable)
+        memory_tolerance: Multiplier for memory threshold (e.g., 1.3 = 30% more acceptable)
+        
+    Raises:
+        AssertionError if performance exceeds baseline * tolerance
+    """
+    if operation_name not in baseline:
+        return  # Skip if baseline not defined
+    
+    thresholds = baseline[operation_name]
+    execution_ms = metrics.execution_time * 1000
+    max_time_ms = thresholds["time_ms"] * time_tolerance
+    max_memory_mb = thresholds["memory_mb"] * memory_tolerance
+    
+    assert (
+        execution_ms <= max_time_ms
+    ), f"{operation_name} took {execution_ms:.2f}ms (limit: {max_time_ms:.2f}ms)"
+    
+    assert (
+        metrics.memory_delta <= max_memory_mb
+    ), f"{operation_name} used {metrics.memory_delta:.2f}MB (limit: {max_memory_mb:.2f}MB)"
