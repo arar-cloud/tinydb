@@ -44,6 +44,22 @@ class Storage(ABC):
     # Using ABCMeta as metaclass allows instantiating only storages that have
     # implemented read and write
 
+    def __init__(self):
+        self._batch_mode = False
+        self._batch_buffer = None
+
+    def enter_batch_mode(self) -> None:
+        """Enter batch write mode to accumulate writes."""
+        self._batch_mode = True
+        self._batch_buffer = None
+
+    def exit_batch_mode(self) -> None:
+        """Exit batch mode and flush accumulated writes."""
+        if self._batch_buffer is not None:
+            self.write(self._batch_buffer)
+            self._batch_buffer = None
+        self._batch_mode = False
+
     @abstractmethod
     def read(self) -> Optional[Dict[str, Dict[str, Any]]]:
         """
