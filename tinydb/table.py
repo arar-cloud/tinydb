@@ -219,8 +219,14 @@ class Table:
                 doc_ids.append(doc_id)
                 table[doc_id] = dict(document)
 
-        # See below for details on ``Table._update``
-        self._update_table(updater)
+        # Batch mode optimization: wrapping _update_table call in batch mode
+        # reduces I/O from N writes to 1 for bulk insertions, significantly
+        # improving performance on mobile/backend systems
+        self._storage.enter_batch_mode() if hasattr(self._storage, 'enter_batch_mode') else None
+        try:
+            self._update_table(updater)
+        finally:
+            self._storage.exit_batch_mode() if hasattr(self._storage, 'exit_batch_mode') else None
 
         return doc_ids
 

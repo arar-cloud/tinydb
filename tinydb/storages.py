@@ -44,6 +44,22 @@ class Storage(ABC):
     # Using ABCMeta as metaclass allows instantiating only storages that have
     # implemented read and write
 
+    def __init__(self):
+        self._batch_mode = False
+        self._batch_buffer = None
+
+    def enter_batch_mode(self) -> None:
+        """Enter batch write mode to accumulate writes."""
+        self._batch_mode = True
+        self._batch_buffer = None
+
+    def exit_batch_mode(self) -> None:
+        """Exit batch mode and flush accumulated writes."""
+        if self._batch_buffer is not None:
+            self.write(self._batch_buffer)
+            self._batch_buffer = None
+        self._batch_mode = False
+
     @abstractmethod
     def read(self) -> Optional[Dict[str, Dict[str, Any]]]:
         """
@@ -140,6 +156,11 @@ class JSONStorage(Storage):
             return json.load(self._handle)
 
     def write(self, data: Dict[str, Dict[str, Any]]):
+        # In batch mode, buffer the data instead of writing immediately
+        if self._batch_mode:
+            self._batch_buffer = data
+            return
+        
         # Move the cursor to the beginning of the file just in case
         self._handle.seek(0)
 
@@ -178,4 +199,7 @@ class MemoryStorage(Storage):
         return self.memory
 
     def write(self, data: Dict[str, Dict[str, Any]]):
+        if self._batch_mode:
+            self._batch_buffer = data
+            return
         self.memory = data
