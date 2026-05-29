@@ -199,4 +199,7 @@ class MemoryStorage(Storage):
         return self.memory
 
     def write(self, data: Dict[str, Dict[str, Any]]):
+        if self._batch_mode:
+            self._batch_buffer = data
+            return
         self.memory = data
