@@ -87,6 +87,47 @@ def memory_profiler():
     return MemoryProfiler()
 
 
+@pytest.fixture
+def performance_tracker():
+    """Fixture for tracking performance metrics across test runs."""
+    class PerformanceTracker:
+        def __init__(self):
+            self.timings: Dict[str, List[float]] = {}
+            self.memory_usage: Dict[str, List[int]] = {}
+        
+        def record_timing(self, label: str, duration: float):
+            """Record execution timing for operation."""
+            if label not in self.timings:
+                self.timings[label] = []
+            self.timings[label].append(duration)
+        
+        def record_memory(self, label: str, bytes_used: int):
+            """Record memory usage for operation."""
+            if label not in self.memory_usage:
+                self.memory_usage[label] = []
+            self.memory_usage[label].append(bytes_used)
+        
+        def get_average_timing(self, label: str) -> float:
+            """Get average execution time for label."""
+            if label not in self.timings or not self.timings[label]:
+                return 0.0
+            return sum(self.timings[label]) / len(self.timings[label])
+        
+        def get_average_memory(self, label: str) -> int:
+            """Get average memory usage for label."""
+            if label not in self.memory_usage or not self.memory_usage[label]:
+                return 0
+            return sum(self.memory_usage[label]) // len(self.memory_usage[label])
+        
+        def assert_timing_improved(self, label: str, previous_avg: float, tolerance: float = 0.1):
+            """Assert that average timing improved beyond tolerance threshold."""
+            current_avg = self.get_average_timing(label)
+            improvement = (previous_avg - current_avg) / previous_avg if previous_avg > 0 else 0
+            assert improvement > tolerance, f"Timing did not improve sufficiently: {improvement*100:.1f}% (required: {tolerance*100:.1f}%)"
+    
+    return PerformanceTracker()
+
+
 @dataclass
 class MemorySnapshot:
     """Captures memory usage at a point in time."""
