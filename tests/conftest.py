@@ -4,8 +4,16 @@ import time
 import tracemalloc
 from pathlib import Path
 from typing import Dict, List, Tuple
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+import sys
 
 import pytest  # type: ignore
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 from tinydb.middlewares import CachingMiddleware
 from tinydb.storages import MemoryStorage
@@ -28,6 +36,90 @@ def db(request, tmp_path: Path):
 @pytest.fixture
 def storage():
     return CachingMiddleware(MemoryStorage)()
+
+
+@pytest.fixture
+def cpu_benchmark(benchmark):
+    """Fixture providing benchmark context for CPU-intensive operations."""
+    def _benchmark(func, *args, **kwargs):
+        return benchmark(func, *args, **kwargs)
+    return _benchmark
+
+
+@pytest.fixture
+def memory_profiler():
+    """Fixture providing memory profiling utilities with baseline tracking."""
+    class MemoryProfiler:
+        def __init__(self):
+            self.baselines: Dict[str, MemorySnapshot] = {}
+            self.measurements: Dict[str, List[MemorySnapshot]] = {}
+        
+        @contextmanager
+        def profile(self, label: str = "default"):
+            """Context manager for profiling a code block."""
+            with profile_memory() as snapshot:
+                yield snapshot
+                after = snapshot._after
+                
+                if label not in self.measurements:
+                    self.measurements[label] = []
+                self.measurements[label].append(after)
+                
+                # Set baseline on first measurement
+                if label not in self.baselines:
+                    self.baselines[label] = snapshot
+        
+        def get_memory_delta(self, label: str) -> int:
+            """Get current memory delta from baseline for label."""
+            if label not in self.measurements:
+                return 0
+            latest = self.measurements[label][-1]
+            baseline = self.baselines.get(label)
+            if baseline:
+                return latest.delta(baseline)
+            return 0
+        
+        def assert_improved(self, label: str, threshold_bytes: int = 0):
+            """Assert that memory usage improved from baseline."""
+            delta = self.get_memory_delta(label)
+            assert delta <= threshold_bytes, f"Memory increased by {delta} bytes (baseline: {self.baselines.get(label)})"
+    
+    return MemoryProfiler()
+
+
+@dataclass
+class MemorySnapshot:
+    """Captures memory usage at a point in time."""
+    current: int
+    peak: int
+    timestamp: float = field(default_factory=time.time)
+
+    def delta(self, other: 'MemorySnapshot') -> int:
+        """Returns memory difference in bytes."""
+        return self.current - other.current
+
+    def peak_delta(self, other: 'MemorySnapshot') -> int:
+        """Returns peak memory difference in bytes."""
+        return self.peak - other.peak
+
+
+@contextmanager
+def profile_memory():
+    """Context manager for memory profiling with baseline tracking."""
+    tracemalloc.start()
+    snapshot_before = tracemalloc.take_snapshot()
+    current_before, peak_before = tracemalloc.get_traced_memory()
+    snapshot_start = MemorySnapshot(current=current_before, peak=peak_before)
+    
+    try:
+        yield snapshot_start
+    finally:
+        current_after, peak_after = tracemalloc.get_traced_memory()
+        snapshot_after = MemorySnapshot(current=current_after, peak=peak_after)
+        tracemalloc.stop()
+        
+        # Store results for assertion
+        snapshot_start._after = snapshot_after
 
 
 class PerformanceBaseline:
