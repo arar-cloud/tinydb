@@ -45,6 +45,8 @@ dev = [
     "sphinx~=8.1",
     "coveralls~=4.0",
     "pyyaml~=6.0",
+    "pytest-benchmark~=4.0",
+    "memory-profiler~=0.61",
     "pytest-mypy~=1.0 ; platform_python_implementation != 'PyPy'",
     "types-PyYAML~=6.0",
 ]
