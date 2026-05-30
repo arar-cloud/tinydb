@@ -39,6 +39,7 @@ Issues = "https://github.com/msiemens/tinydb/issues"
 [dependency-groups]
 dev = [
     "pytest~=9.0",
+    "pytest-benchmark~=4.0",
     "pytest-pycodestyle~=2.3",
     "pytest-cov~=7.0",
     "pycodestyle~=2.10",
