@@ -37,6 +37,10 @@ Changelog = "https://tinydb.readthedocs.io/en/latest/changelog.html"
 Issues = "https://github.com/msiemens/tinydb/issues"
 
 [dependency-groups]
+test = [
+    "pytest-benchmark>=4.0",
+    "psutil>=5.9",
+]
 dev = [
     "pytest~=9.0",
     "pytest-pycodestyle~=2.3",
