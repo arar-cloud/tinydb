@@ -30,3 +30,6 @@ from .database import TinyDB
 from .version import __version__
 
 __all__ = ('TinyDB', 'Storage', 'JSONStorage', 'Query', 'where')
+
+# Note: batch_insert() and bootstrap() methods are available on Table instances
+# returned from db.table() or db directly (TinyDB extends Table)
