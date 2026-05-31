@@ -1,6 +1,18 @@
 """
 This module implements tables, the central place for accessing and manipulating
 data in TinyDB.
+
+Batch Operations:
+  For bulk insertions, use batch_insert() or bootstrap() instead of repeated
+  insert() calls. Batch operations write all documents in a single storage
+  operation, significantly improving performance:
+
+  Example:
+    # Efficient: single write operation
+    ids = table.batch_insert([{'data': i} for i in range(1000)])
+
+    # Or use bootstrap with a generator function
+    ids = table.bootstrap(1000, lambda i: {'index': i, 'value': i*2})
 """
 
 from typing import (
