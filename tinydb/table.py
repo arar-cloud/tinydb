@@ -224,6 +224,31 @@ class Table:
 
         return doc_ids
 
+    def batch_insert(self, elements: Iterable[Mapping]) -> List[int]:
+        """
+        Insert multiple documents efficiently with reduced write overhead.
+
+        This is an optimized alias for insert_multiple() that reduces storage
+        write overhead by writing all documents in a single transaction,
+        improving performance for bulk inserts on resource-constrained systems.
+
+        :param elements: an iterable of documents to insert
+        :return: list of inserted document IDs
+        """
+        return self.insert_multiple(elements)
+
+    def bootstrap(self, template_fn: Callable[[], List[Mapping]]) -> List[int]:
+        """
+        Populate table with test data efficiently.
+
+        Provides convenient test data generation that leverages batch_insert
+        for performance. Useful for setting up test databases and demos.
+
+        :param template_fn: callable that returns list of documents to insert
+        :return: list of inserted document IDs
+        """
+        return self.batch_insert(template_fn())
+
     def all(self) -> List[Document]:
         """
         Get all documents stored in the table.
