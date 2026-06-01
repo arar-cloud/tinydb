@@ -61,6 +61,9 @@ include = [
 [tool.hatch.build.targets.wheel]
 include = ["tinydb"]
 
+[tool.tox]
+legacy_tox_ini = "tox.ini"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
