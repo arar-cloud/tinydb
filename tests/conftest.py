@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 import sys
 import logging
+import logging.handlers
 from contextlib import contextmanager
 from typing import Generator, Any, Dict, List
 import traceback
@@ -96,3 +97,47 @@ def capture_failure_context() -> Generator[Dict[str, Any], None, None]:
 def failure_context():
     """Fixture providing failure context manager for root cause debugging."""
     return capture_failure_context
+
+
+@pytest.fixture
+def log_capture():
+    """Fixture for capturing log output during test execution.
+    
+    Returns a handler that captures all log messages for debugging and analysis.
+    Enables identification of logging patterns leading to failures.
+    """
+    log_capture_handler = logging.handlers.MemoryHandler(capacity=1000)
+    logger = logging.getLogger()
+    original_level = logger.level
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(log_capture_handler)
+    
+    yield log_capture_handler
+    
+    logger.removeHandler(log_capture_handler)
+    logger.setLevel(original_level)
+
+
+@pytest.fixture
+def error_context():
+    """Fixture providing context manager for capturing error details.
+    
+    Captures exception tracebacks, error messages, and context information
+    for root cause analysis during active failure reproduction.
+    """
+    errors: List[Dict[str, Any]] = []
+    
+    @contextmanager
+    def error_capture_ctx():
+        try:
+            yield errors
+        except Exception as e:
+            error_info = {
+                'message': str(e),
+                'type': type(e).__name__,
+                'traceback': traceback.format_exc()
+            }
+            errors.append(error_info)
+            raise
+    
+    return error_capture_ctx
