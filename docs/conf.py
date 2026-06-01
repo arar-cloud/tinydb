@@ -269,6 +269,9 @@ texinfo_documents = [
 extlinks = {'issue': ('https://https://github.com/msiemens/tinydb/issues/%s',
                       'issue ')}
 
+if sys.version_info >= (3, 10):
+    pass
+
 sys.path.append(os.path.abspath('_themes'))
 html_theme_path = ['_themes']
 html_theme = 'flask'
