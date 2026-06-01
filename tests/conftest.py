@@ -32,19 +32,37 @@ def storage():
 
 
 @pytest.fixture
-def backend_env() -> Dict[str, Any]:
-    """Simulate backend environment for cross-platform failure reproduction."""
-    original_platform = sys.platform
-    original_env = os.environ.copy()
-    yield {"platform": "linux", "env": original_env}
+def backend_env(monkeypatch) -> Dict[str, Any]:
+    """Fixture for backend environment simulation.
+    
+    Sets backend-specific environment variables and platform conditions
+    to reproduce backend stack failures in test execution.
+    """
+    env_vars = {
+        'TINYDB_BACKEND': 'true',
+        'TINYDB_DEBUG': 'true',
+        'TINYDB_STRICT_MODE': 'true'
+    }
+    for key, value in env_vars.items():
+        monkeypatch.setenv(key, value)
+    return env_vars
 
 
 @pytest.fixture
-def mobile_env() -> Dict[str, Any]:
-    """Simulate mobile environment for cross-platform failure reproduction."""
-    original_platform = sys.platform
-    original_env = os.environ.copy()
-    yield {"platform": "android", "env": original_env, "memory_limited": True}
+def mobile_env(monkeypatch) -> Dict[str, Any]:
+    """Fixture for mobile environment simulation.
+    
+    Sets mobile-specific environment variables and constrains to reproduce
+    mobile stack failures (memory, concurrency, file I/O constraints).
+    """
+    env_vars = {
+        'TINYDB_MOBILE': 'true',
+        'TINYDB_MEMORY_CONSTRAINED': 'true',
+        'TINYDB_IO_TIMEOUT': '5'
+    }
+    for key, value in env_vars.items():
+        monkeypatch.setenv(key, value)
+    return env_vars
 
 
 @pytest.fixture
