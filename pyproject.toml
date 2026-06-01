@@ -64,6 +64,11 @@ include = ["tinydb"]
 [tool.tox]
 legacy_tox_ini = "tox.ini"
 
+[tool.pytest.ini_options]
+addopts = "-v --cov=tinydb --cov-report=term-missing"
+testpaths = ["tests"]
+python_files = "test_*.py"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
