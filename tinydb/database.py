@@ -250,14 +250,15 @@ class TinyDB(TableBase):
 
         Upon leaving this context, the ``close`` method will be called.
         """
-        try:
-            if self._storage and hasattr(self._storage, 'close'):
-                self._storage.close()
-        except Exception as e:
-            raise RuntimeError(f"Failed to close storage: {e}") from e
-        finally:
-            self._opened = False
-            self._tables.clear()
+        with self._connection_lock:
+            try:
+                if self._storage and hasattr(self._storage, 'close'):
+                    self._storage.close()
+            except Exception as e:
+                raise RuntimeError(f"Failed to close storage: {e}") from e
+            finally:
+                self._opened = False
+                self._tables.clear()
 
     def __enter__(self):
         """
