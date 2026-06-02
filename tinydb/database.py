@@ -106,6 +106,21 @@ class TinyDB(TableBase):
             self._opened = False
             raise RuntimeError(f"Failed to initialize database storage: {e}") from e
 
+    def open(self) -> None:
+        """
+        Open the database storage.
+        """
+        with self._connection_lock:
+            if self.storage.opened:
+                return
+            try:
+                self.storage.open()
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to open database: {e}", exc_info=True)
+                raise
+
     def __repr__(self):
 
         args = [
