@@ -104,6 +104,8 @@ class CachingMiddleware(Middleware):
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"Middleware read error: {e}", exc_info=True)
+            # Reset cache state on read failure to prevent stale data
+            self.cache = None
             raise
 
     def write(self, data):
