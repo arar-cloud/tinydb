@@ -150,7 +150,7 @@ class Table:
 
         # Make sure the document implements the ``Mapping`` interface
         if not isinstance(document, Mapping):
-            raise ValueError('Document is not a Mapping')
+            raise TypeError('Document is not a Mapping')
 
         # First, we get the document ID for the new document
         if isinstance(document, self.document_class):
