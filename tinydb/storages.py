@@ -6,6 +6,7 @@ implementations.
 import io
 import json
 import os
+import threading
 import warnings
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
@@ -102,6 +103,7 @@ class JSONStorage(Storage):
 
         super().__init__()
 
+        self._lock = threading.RLock()
         self._mode = access_mode
         self.kwargs = kwargs
 
