@@ -40,6 +40,9 @@ try:
 except ImportError as e:
     raise ImportError(f"Failed to import queries: {e}") from e
 
-from .version import __version__
+try:
+    from .version import __version__
+except ImportError:
+    __version__ = "unknown"
 
-__all__ = ('TinyDB', 'Storage', 'JSONStorage', 'Query', 'where')
+__all__ = ('TinyDB', 'Storage', 'JSONStorage', 'Query', 'where', '__version__')
