@@ -3,6 +3,7 @@ This module contains the main component of TinyDB: the database.
 """
 
 from typing import Dict, Iterator, Set, Type
+import threading
 
 from . import JSONStorage
 from .storages import Storage
@@ -90,12 +91,19 @@ class TinyDB(TableBase):
         """
 
         storage = kwargs.pop('storage', self.default_storage_class)
-
-        # Prepare the storage
-        self._storage: Storage = storage(*args, **kwargs)
-
-        self._opened = True
+        self._storage: Storage = None
+        self._init_lock = threading.Lock()
         self._tables: Dict[str, Table] = {}
+        self._opened = False
+        
+        try:
+            # Prepare the storage
+            self._storage = storage(*args, **kwargs)
+            self._opened = True
+        except Exception as e:
+            self._storage = None
+            self._opened = False
+            raise RuntimeError(f"Failed to initialize database storage: {e}") from e
 
     def __repr__(self):
 
