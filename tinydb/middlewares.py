@@ -94,21 +94,31 @@ class CachingMiddleware(Middleware):
         self._cache_modified_count = 0
 
     def read(self):
-        if self.cache is None:
-            # Empty cache: read from the storage
-            self.cache = self.storage.read()
-
-        # Return the cached data
-        return self.cache
+        try:
+            if self.cache is None:
+                # Empty cache: read from the storage
+                self.cache = self.storage.read()
+            # Return the cached data
+            return self.cache
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Middleware read error: {e}", exc_info=True)
+            raise
 
     def write(self, data):
-        # Store data in cache
-        self.cache = data
-        self._cache_modified_count += 1
-
-        # Check if we need to flush the cache
-        if self._cache_modified_count >= self.WRITE_CACHE_SIZE:
-            self.flush()
+        try:
+            # Store data in cache
+            self.cache = data
+            self._cache_modified_count += 1
+            # Check if we need to flush the cache
+            if self._cache_modified_count >= self.WRITE_CACHE_SIZE:
+                self.flush()
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Middleware write error: {e}", exc_info=True)
+            raise
 
     def flush(self):
         """
