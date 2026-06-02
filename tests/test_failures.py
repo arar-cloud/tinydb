@@ -19,6 +19,22 @@ from tinydb.storages import MemoryStorage, JSONStorage
 from tinydb.middlewares import CachingMiddleware
 
 
+class TestInitializationFailures:
+    """Test database initialization and state management failures."""
+    
+    def test_init_with_invalid_storage(self):
+        """Test that invalid storage raises appropriate error."""
+        with pytest.raises(RuntimeError):
+            TinyDB(None)
+    
+    def test_context_manager(self, tmp_path):
+        """Test database context manager cleanup."""
+        db_path = tmp_path / "test.json"
+        with TinyDB(str(db_path)) as db:
+            db.insert({'test': 'data'})
+        # Should be closed after context
+        assert not db._initialized
+
 class TestConcurrentAccess:
     """Test concurrent access patterns that may fail on backend/mobile stacks."""
 
