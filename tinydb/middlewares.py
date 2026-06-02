@@ -120,6 +120,9 @@ class CachingMiddleware(Middleware):
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"Middleware write error: {e}", exc_info=True)
+            # Reset cache state on write failure to prevent inconsistency
+            self.cache = None
+            self._cache_modified_count = 0
             raise
 
     def flush(self):
