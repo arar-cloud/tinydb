@@ -2,6 +2,7 @@
 This module contains the main component of TinyDB: the database.
 """
 
+import threading
 from typing import Dict, Iterator, Set, Type
 import threading
 
@@ -95,7 +96,7 @@ class TinyDB(TableBase):
         self._init_lock = threading.Lock()
         self._tables: Dict[str, Table] = {}
         self._opened = False
-        
+
         try:
             # Prepare the storage
             self._storage = storage(*args, **kwargs)
