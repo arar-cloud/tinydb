@@ -17,6 +17,26 @@ from tinydb.storages import MemoryStorage
 from tinydb import TinyDB, JSONStorage
 
 
+@pytest.fixture
+def error_logger() -> logging.Logger:
+    """Fixture that provides a logger to capture errors during tests."""
+    logger = logging.getLogger('test_errors')
+    logger.setLevel(logging.DEBUG)
+    return logger
+
+
+@pytest.fixture
+def recovery_fixture(tmp_path: Path):
+    """Fixture for testing database recovery under failure conditions."""
+    db_path = tmp_path / "recovery_test.json"
+    db = TinyDB(str(db_path))
+    yield db
+    try:
+        db.close()
+    except Exception:
+        pass
+
+
 @pytest.fixture(params=['memory', 'json'])
 def db(request, tmp_path: Path):
     if request.param == 'json':
