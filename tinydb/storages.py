@@ -158,6 +158,8 @@ class JSONStorage(Storage):
                 self._handle.write(serialized)
             except io.UnsupportedOperation:
                 raise IOError('Cannot write to the database. Access mode is "{0}"'.format(self._mode))
+            except IOError as e:
+                raise RuntimeError(f"Failed to write storage: {e}") from e
 
             # Ensure the file has been written
             self._handle.flush()
