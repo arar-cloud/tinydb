@@ -41,12 +41,18 @@ dev = [
     "pytest~=9.0",
     "pytest-pycodestyle~=2.3",
     "pytest-cov~=7.0",
+    "pytest-timeout>=2.1",
+    "pytest-xdist>=3.0",
+    "pytest-mock>=3.10",
     "pycodestyle~=2.10",
     "sphinx~=8.1",
     "coveralls~=4.0",
     "pyyaml~=6.0",
     "pytest-mypy~=1.0 ; platform_python_implementation != 'PyPy'",
     "types-PyYAML~=6.0",
+    "icecream>=2.1",
+    "mypy>=1.0",
+    "types-setuptools",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -57,6 +63,15 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 include = ["tinydb"]
+
+[tool.pytest.ini_options]
+addopts = "--verbose --cov-append --cov-report term --cov tinydb"
+markers = [
+    "py310: Tests specific to Python 3.10",
+    "py311: Tests specific to Python 3.11",
+    "py312: Tests specific to Python 3.12",
+    "version_compat: Python version compatibility tests",
+]
 
 [build-system]
 requires = ["hatchling"]
