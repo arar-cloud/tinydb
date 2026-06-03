@@ -64,6 +64,15 @@ include = [
 [tool.hatch.build.targets.wheel]
 include = ["tinydb"]
 
+[tool.pytest.ini_options]
+addopts = "--verbose --cov-append --cov-report term --cov tinydb"
+markers = [
+    "py310: Tests specific to Python 3.10",
+    "py311: Tests specific to Python 3.11",
+    "py312: Tests specific to Python 3.12",
+    "version_compat: Python version compatibility tests",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
