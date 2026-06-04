@@ -88,3 +88,41 @@ def transient_failure_simulator():
             self.max_failures = 0
     
     return TransientFailureSimulator()
+
+
+@pytest.fixture
+def chaos_injection():
+    """Fixture for fault injection testing (connection drops, timeouts, partial writes)."""
+    class ChaosInjection:
+        def __init__(self):
+            self.connection_drop_enabled = False
+            self.timeout_enabled = False
+            self.partial_write_enabled = False
+            self.delay_ms = 0
+        
+        def enable_connection_drop(self) -> None:
+            """Simulate connection drop."""
+            self.connection_drop_enabled = True
+        
+        def enable_timeout(self, delay_ms: int = 100) -> None:
+            """Simulate operation timeout."""
+            self.timeout_enabled = True
+            self.delay_ms = delay_ms
+        
+        def enable_partial_write(self) -> None:
+            """Simulate partial write failure."""
+            self.partial_write_enabled = True
+        
+        def inject_delay(self) -> None:
+            """Apply injected delay."""
+            if self.delay_ms > 0:
+                time.sleep(self.delay_ms / 1000.0)
+        
+        def reset(self) -> None:
+            """Reset all chaos conditions."""
+            self.connection_drop_enabled = False
+            self.timeout_enabled = False
+            self.partial_write_enabled = False
+            self.delay_ms = 0
+    
+    return ChaosInjection()
