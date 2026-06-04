@@ -41,3 +41,50 @@ def db(request, tmp_path: Path):
 @pytest.fixture
 def storage():
     return CachingMiddleware(MemoryStorage)()
+
+
+@pytest.fixture
+def db_with_recovery(tmp_path: Path):
+    """Fixture providing database with state recovery capability for testing resilience."""
+    db_path = tmp_path / 'recovery_test.db'
+    
+    def _create_db():
+        db = TinyDB(db_path, storage=JSONStorage)
+        db.drop_tables()
+        return db
+    
+    db = _create_db()
+    
+    def _assert_recovery():
+        """Validate database state consistency after recovery."""
+        recovered_db = _create_db()
+        assert len(recovered_db) == len(db), "Database state inconsistency detected"
+        recovered_db.close()
+    
+    yield db, _assert_recovery
+    db.close()
+
+
+@pytest.fixture
+def transient_failure_simulator():
+    """Fixture for simulating transient failures in database operations."""
+    class TransientFailureSimulator:
+        def __init__(self):
+            self.fail_count = 0
+            self.max_failures = 0
+        
+        def should_fail(self) -> bool:
+            if self.fail_count < self.max_failures:
+                self.fail_count += 1
+                return True
+            return False
+        
+        def set_failure_count(self, count: int) -> None:
+            self.max_failures = count
+            self.fail_count = 0
+        
+        def reset(self) -> None:
+            self.fail_count = 0
+            self.max_failures = 0
+    
+    return TransientFailureSimulator()
