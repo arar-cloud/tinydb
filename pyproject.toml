@@ -3,7 +3,7 @@ name = "tinydb"
 version = "4.8.2"
 description = "TinyDB is a tiny, document oriented database optimized for your happiness :)"
 authors = [{ name = "Markus Siemens", email = "markus@m-siemens.de" }]
-requires-python = ">=3.10,<4"
+requires-python = ">=3.10,<3.13"
 readme = "README.rst"
 license = "MIT"
 dependencies = [
@@ -25,8 +25,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Operating System :: OS Independent",
