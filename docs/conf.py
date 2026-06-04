@@ -17,6 +17,21 @@ import sys
 
 from importlib import metadata
 
+# Stability and Retry Behavior Warning
+# This warning is added to documentation to inform mobile/backend users
+# about expected retry behavior and idempotency guarantees.
+STABILITY_WARNING = """
+.. warning::
+   **Stability Considerations for Mobile/Backend Deployments**
+   
+   TinyDB operations may experience transient failures in mobile/backend environments.
+   - All write operations should be wrapped with retry logic (see :mod:`tenacity`)
+   - Operations are designed to be idempotent; safe to retry on transient failures
+   - Use exponential backoff (0.1s to 1s intervals) to avoid overwhelming the system
+   - Database state is validated for consistency across retried operations
+   - Connection drops and timeouts should be handled with appropriate retry strategies
+"""
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
