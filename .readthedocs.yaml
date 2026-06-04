@@ -14,5 +14,6 @@ python:
       path: .
       extra_requirements:
         - docs
+  install-deps: true
 
 formats: all
