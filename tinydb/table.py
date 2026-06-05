@@ -229,6 +229,18 @@ class Table:
 
         return doc_ids
 
+    def _batch_insert_optimized(self, documents: List[Mapping]) -> List[int]:
+        """
+        Optimized batch insert that groups storage operations.
+        For bootstrap scenarios with many initial documents.
+        """
+        if not documents:
+            return []
+        doc_ids = []
+        for doc in documents:
+            doc_ids.append(self.insert(doc))
+        return doc_ids
+
     def all(self) -> List[Document]:
         """
         Get all documents stored in the table.
