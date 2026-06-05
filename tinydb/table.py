@@ -187,10 +187,15 @@ class Table:
         :param documents: an Iterable of documents to insert
         :returns: a list containing the inserted documents' IDs
         """
+        # Convert to list once to avoid multiple iterations through the iterable
+        docs_list = list(documents)
+        if not docs_list:
+            return []
+        
         doc_ids = []
 
         def updater(table: dict):
-            for document in documents:
+            for document in docs_list:
 
                 # Make sure the document implements the ``Mapping`` interface
                 if not isinstance(document, Mapping):
