@@ -96,6 +96,7 @@ class TinyDB(TableBase):
 
         self._opened = True
         self._tables: Dict[str, Table] = {}
+        self._table_cache = {}
 
     def __repr__(self):
 
