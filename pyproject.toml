@@ -41,6 +41,9 @@ dev = [
     "pytest~=9.0",
     "pytest-pycodestyle~=2.3",
     "pytest-cov~=7.0",
+    "pytest-xdist>=3.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-timeout>=2.1.0",
     "pycodestyle~=2.10",
     "sphinx~=8.1",
     "coveralls~=4.0",
@@ -57,6 +60,44 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 include = ["tinydb"]
+
+[tool.pytest.ini_options]
+addopts = "--verbose --cov-append --cov-report term --cov tinydb --cov-fail-under=90"
+
+[tool.coverage.run]
+branch = true
+omit = ["*/tests/*", "*/conftest.py"]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.coverage.paths]
+source = ["tinydb", "*/site-packages/tinydb"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+follow_imports = "normal"
+# Exclude migrations and generated files
+exclude = ["tests/", "docs/"]
 
 [build-system]
 requires = ["hatchling"]
