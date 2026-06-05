@@ -60,6 +60,29 @@ include = [
 [tool.hatch.build.targets.wheel]
 include = ["tinydb"]
 
+[tool.pytest.ini_options]
+addopts = "--verbose --cov-append --cov-report term --cov tinydb --cov-fail-under=90"
+
+[tool.coverage.run]
+branch = true
+omit = ["*/tests/*", "*/conftest.py"]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.coverage.paths]
+source = ["tinydb", "*/site-packages/tinydb"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
