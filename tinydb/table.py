@@ -162,6 +162,37 @@ class Table:
             # In such cases, just yield without timeout enforcement
             yield
     
+    def _verify_table_state(self) -> bool:
+        """
+        Verify table state consistency after failed operations.
+        Detects and helps recover from corrupted in-memory state.
+        
+        :return: True if state is consistent, raises RuntimeError if corrupted.
+        """
+        try:
+            # Verify table_name is valid
+            if not isinstance(self._name, str) or not self._name:
+                raise RuntimeError(f'Invalid table name: {repr(self._name)}')
+            
+            # Verify storage is accessible
+            if self._storage is None:
+                raise RuntimeError('Storage is None - table is detached')
+            
+            # Attempt to read from storage to verify access
+            data = self._storage.read()
+            if data is None:
+                raise RuntimeError('Storage returned None - possible corruption')
+            
+            # Verify _next_id is consistent
+            if self._next_id is not None and self._next_id < 0:
+                raise RuntimeError(f'Invalid _next_id: {self._next_id}')
+            
+            return True
+        except RuntimeError:
+            raise
+        except Exception as e:
+            raise RuntimeError(f'State verification failed: {str(e)}')
+    
     @contextlib.contextmanager
     def _transaction(self):
         """
@@ -248,7 +279,11 @@ class Table:
             table[doc_id] = dict(document)
 
         # See below for details on ``Table._update``
-        self._update_table(updater)
+        try:
+            self._update_table(updater)
+        except Exception:
+            self._verify_table_state()
+            raise
 
         return doc_id
 
