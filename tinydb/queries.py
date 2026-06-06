@@ -28,6 +28,11 @@ MAX_QUERY_DEPTH = 50  # Maximum nesting depth for query trees
 MAX_QUERY_SIZE = 10000  # Maximum query object size in bytes (approximate)
 MAX_PATH_LENGTH = 100  # Maximum field path length
 
+# Query validation constants
+MAX_QUERY_DEPTH = 50  # Maximum nesting depth for query trees
+MAX_QUERY_SIZE = 10000  # Maximum query object size in bytes (approximate)
+MAX_PATH_LENGTH = 100  # Maximum field path length
+
 
 def is_sequence(obj):
     return hasattr(obj, '__iter__')
@@ -180,6 +185,17 @@ class Query(QueryInstance):
             test=notest,
             hashval=(None,)
         )
+    
+    @staticmethod
+    def _validate_query_structure(depth: int = 0) -> None:
+        """
+        Validate query structure depth to prevent stack overflow attacks.
+        
+        :param depth: Current recursion depth
+        :raises ValueError: if query depth exceeds MAX_QUERY_DEPTH
+        """
+        if depth > MAX_QUERY_DEPTH:
+            raise ValueError(f'Query depth too deep: {depth} > {MAX_QUERY_DEPTH}')
     
     @staticmethod
     def _validate_query_structure(depth: int = 0) -> None:
