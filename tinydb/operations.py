@@ -73,8 +73,17 @@ def set(field: str, val: Any) -> Callable[[Mapping], None]:
     """
     _validate_operation_data(val, 'set')
     def transform(doc: Mapping):
-        if not isinstance(doc, dict):
-            raise TypeError(f'Set operation requires dict, got {type(doc).__name__}')
+        # Validate input is mutable (dict-like)
+        if not hasattr(doc, '__setitem__'):
+            raise TypeError(
+                f'Cannot set fields on non-dict element of type {type(doc).__name__}'
+            )
+        # Validate field key is string-like
+        if not isinstance(field, str):
+            raise TypeError(
+                f'Document field must be string, got {type(field).__name__}: {repr(field)}'
+            )
+        # Set field with type validation
         doc[field] = val
 
     return transform
