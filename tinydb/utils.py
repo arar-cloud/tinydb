@@ -172,7 +172,7 @@ class FrozenDict(dict):
         raise TypeError('object is immutable')
 
 
-def freeze(obj):
+def freeze(obj, path: str = 'root'):
     """
     Freeze an object by making it immutable and thus hashable.
     """
