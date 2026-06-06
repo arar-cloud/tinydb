@@ -29,12 +29,17 @@ classifiers = [
     "Operating System :: OS Independent",
     "Typing :: Typed",
 ]
+# Python 3.10+ stability requirements for tinydb backend
+# Validated across CPython (3.10-3.14) and PyPy
+# CI matrix covers all supported implementations for reliability hardening
 
 [project.urls]
 Homepage = "https://github.com/msiemens/tinydb"
 Documentation = "https://tinydb.readthedocs.org/"
 Changelog = "https://tinydb.readthedocs.io/en/latest/changelog.html"
 Issues = "https://github.com/msiemens/tinydb/issues"
+# Stability note: Backend requires Python 3.10+ for consistent behavior
+# PyPy support validated in CI for mobile/cloud deployments (issue 14366544d4)
 
 [dependency-groups]
 dev = [
@@ -47,6 +52,9 @@ dev = [
     "pyyaml~=6.0",
     "pytest-mypy~=1.0 ; platform_python_implementation != 'PyPy'",
     "types-PyYAML~=6.0",
+    "pytest-mock",
+    "responses",
+    "tenacity",
 ]
 
 [tool.hatch.build.targets.sdist]

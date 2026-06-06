@@ -11,6 +11,31 @@ This would delete the ``foo`` field from all documents where ``foo`` equals 2.
 
 from typing import Callable, Mapping, Any, Union
 
+# Maximum document size to prevent unbounded growth (100 MB)
+MAX_DOCUMENT_SIZE = 100 * 1024 * 1024
+
+
+def _validate_operation_data(data: Any, operation_name: str) -> None:
+    """
+    Validate data for operations to catch edge cases early.
+    
+    :param data: Data to validate
+    :param operation_name: Name of operation for error messages
+    :raises: ValueError if data is invalid
+    :raises: TypeError if data type is invalid
+    """
+    if data is None:
+        raise ValueError(f'{operation_name}: Cannot operate on null/None values')
+    
+    if isinstance(data, (list, dict, str)) and len(data) == 0:
+        raise ValueError(f'{operation_name}: Cannot operate on empty collections')
+    
+    # Estimate size for oversized documents
+    if isinstance(data, (dict, list)):
+        import sys
+        if sys.getsizeof(data) > MAX_DOCUMENT_SIZE:
+            raise ValueError(f'{operation_name}: Document exceeds maximum size of {MAX_DOCUMENT_SIZE} bytes')
+
 
 def delete(field: str) -> Callable[[Mapping], None]:
     """
@@ -46,7 +71,19 @@ def set(field: str, val: Any) -> Callable[[Mapping], None]:
     """
     Set a given field to ``val``.
     """
+    _validate_operation_data(val, 'set')
     def transform(doc: Mapping):
+        # Validate input is mutable (dict-like)
+        if not hasattr(doc, '__setitem__'):
+            raise TypeError(
+                f'Cannot set fields on non-dict element of type {type(doc).__name__}'
+            )
+        # Validate field key is string-like
+        if not isinstance(field, str):
+            raise TypeError(
+                f'Document field must be string, got {type(field).__name__}: {repr(field)}'
+            )
+        # Set field with type validation
         doc[field] = val
 
     return transform

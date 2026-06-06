@@ -172,6 +172,25 @@ class Query(QueryInstance):
             test=notest,
             hashval=(None,)
         )
+    
+    @staticmethod
+    def _validate_path_component(component: Union[str, Callable]) -> None:
+        """
+        Validate a single path component to catch malformed queries early.
+        
+        :param component: The path component to validate (string or callable)
+        :raises TypeError: if component type is invalid
+        :raises ValueError: if string component is malformed
+        """
+        if isinstance(component, str):
+            if not component:
+                raise ValueError('Query path component cannot be empty string')
+            invalid_chars = ['\x00', '\n', '\r']
+            for char in invalid_chars:
+                if char in component:
+                    raise ValueError(f'Query path component contains invalid character: {repr(char)}')
+        elif not callable(component):
+            raise TypeError(f'Query path component must be string or callable, got {type(component).__name__}')
 
     def __repr__(self):
         return '{}()'.format(type(self).__name__)
@@ -184,6 +203,9 @@ class Query(QueryInstance):
         # We use type(self) to get the class of the current query in case
         # someone uses a subclass of ``Query``
         query = type(self)()
+
+        # Validate the path component early
+        self._validate_path_component(item)
 
         # Now we add the accessed item to the query path ...
         query._path = self._path + (item,)
@@ -248,6 +270,9 @@ class Query(QueryInstance):
 
         :param rhs: The value to compare against
         """
+        # Validate rhs type early to catch invalid queries at construction time
+        if rhs is not None and not isinstance(rhs, (str, int, float, bool, dict, list, tuple, bytes, type(None))):
+            raise TypeError(f'Cannot compare with unsupported type: {type(rhs).__name__}')
         return self._generate_test(
             lambda value: value == rhs,
             ('==', self._path, freeze(rhs))
@@ -274,6 +299,9 @@ class Query(QueryInstance):
 
         :param rhs: The value to compare against
         """
+        # Validate rhs type early - comparison operators need comparable types
+        if not isinstance(rhs, (str, int, float, bool, bytes, type(None))):
+            raise TypeError(f'Cannot compare with unsupported type: {type(rhs).__name__}')
         return self._generate_test(
             lambda value: value < rhs,
             ('<', self._path, rhs)

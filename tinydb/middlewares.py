@@ -3,8 +3,11 @@ Contains the :class:`base class <tinydb.middlewares.Middleware>` for
 middlewares and implementations.
 """
 from typing import Optional
+import logging
 
 from tinydb import Storage
+
+logger = logging.getLogger(__name__)
 
 
 class Middleware:
@@ -44,7 +47,8 @@ class Middleware:
                                        v
             TinyDB(storage=Middleware(StorageClass))
                        ^
-                       Already an instance!
+        try:
+                           Already an instance!
 
         So, when running ``self.storage = storage(*args, **kwargs)`` Python
         now will call ``__call__`` and TinyDB will expect the return value to
@@ -64,13 +68,48 @@ class Middleware:
 
         return self
 
+    def read(self) -> str:
+        """
+        Read the storage.
+
+        This is called when the database reads from the storage.
+        The default implementation forwards the read call to the storage
+        with exception isolation and context wrapping.
+        """
+        try:
+            return self.storage.read()
+        except Exception as e:
+            # Wrap exception with middleware context for better debugging
+            raise RuntimeError(
+                f'Middleware read() failed in {self.__class__.__name__}: {str(e)}'
+            ) from e
+
+    def write(self, data: str) -> None:
+        """
+        Write to the storage.
+
+        This is called when the database writes to the storage.
+        The default implementation forwards the write call to the storage
+        with exception isolation and context wrapping.
+        """
+        try:
+            return self.storage.write(data)
+        except Exception as e:
+            # Wrap exception with middleware context for better debugging
+            raise RuntimeError(
+                f'Middleware write() failed in {self.__class__.__name__}: {str(e)}'
+            ) from e
+
     def __getattr__(self, name):
         """
         Forward all unknown attribute calls to the underlying storage, so we
         remain as transparent as possible.
         """
-
-        return getattr(self.__dict__['storage'], name)
+        try:
+            return getattr(self.__dict__['storage'], name)
+        except (AttributeError, KeyError) as e:
+            logger.warning(f'Middleware attribute access failed for {name}: {str(e)}')
+            raise
 
 
 class CachingMiddleware(Middleware):
@@ -96,7 +135,13 @@ class CachingMiddleware(Middleware):
     def read(self):
         if self.cache is None:
             # Empty cache: read from the storage
-            self.cache = self.storage.read()
+            try:
+                self.cache = self.storage.read()
+            except Exception as e:
+                logger.error(f'CachingMiddleware read() failed: {str(e)}')
+                raise RuntimeError(
+                    f'CachingMiddleware read() failed: {str(e)}'
+                ) from e
 
         # Return the cached data
         return self.cache

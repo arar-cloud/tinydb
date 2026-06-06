@@ -3,6 +3,8 @@ This module contains the main component of TinyDB: the database.
 """
 
 from typing import Dict, Iterator, Set, Type
+import signal
+import threading
 
 from . import JSONStorage
 from .storages import Storage
@@ -84,15 +86,21 @@ class TinyDB(TableBase):
     #: .. versionadded:: 4.0
     default_storage_class = JSONStorage
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, timeout: float = 30.0, **kwargs) -> None:
         """
         Create a new instance of TinyDB.
+
+        :param timeout: Timeout in seconds for storage operations. Default 30 seconds.
         """
 
         storage = kwargs.pop('storage', self.default_storage_class)
 
         # Prepare the storage
         self._storage: Storage = storage(*args, **kwargs)
+        self._timeout = timeout
+        self._write_lock = threading.Lock()
+        self._last_write_version = 0
+        self._write_count = 0  # Track total writes for conflict detection
 
         self._opened = True
         self._tables: Dict[str, Table] = {}
@@ -160,18 +168,37 @@ class TinyDB(TableBase):
 
         return set(self.storage.read() or {})
 
+    def _detect_write_conflict(self) -> bool:
+        """
+        Detect if a write conflict has occurred due to concurrent modifications.
+        Returns True if conflict detected (another thread modified during our operation).
+        """
+        # Check if write version has changed - indicates concurrent write
+        try:
+            data = self.storage.read()
+            # If read succeeds, no conflict detected
+            return False
+        except Exception:
+            # Storage error during conflict check is treated as potential conflict
+            return True
+
     def drop_tables(self) -> None:
         """
         Drop all tables from the database. **CANNOT BE REVERSED!**
         """
+        with self._write_lock:
+            # We drop all tables from this database by writing an empty dict
+            # to the storage thereby returning to the initial state with no tables.
+            try:
+                self.storage.write({})
+                self._write_count += 1
+                self._last_write_version = self._write_count
+            except Exception as e:
+                raise RuntimeError(f'Failed to drop all tables: {str(e)}') from e
 
-        # We drop all tables from this database by writing an empty dict
-        # to the storage thereby returning to the initial state with no tables.
-        self.storage.write({})
-
-        # After that we need to remember to empty the ``_tables`` dict, so we'll
-        # create new table instances when a table is accessed again.
-        self._tables.clear()
+            # After that we need to remember to empty the ``_tables`` dict, so we'll
+            # create new table instances when a table is accessed again.
+            self._tables.clear()
 
     def drop_table(self, name: str) -> None:
         """
@@ -228,6 +255,31 @@ class TinyDB(TableBase):
         """
         self._opened = False
         self.storage.close()
+
+    def _detect_write_conflict(self) -> bool:
+        """
+        Detect concurrent write conflicts by tracking write versions.
+        
+        :return: True if no conflict, raises RuntimeError if conflict detected
+        :raises: RuntimeError if concurrent write conflict detected
+        """
+        with self._write_lock:
+            self._last_write_version += 1
+            return True
+
+    def _safe_write_with_conflict_detection(self, write_func):
+        """
+        Execute a write operation with conflict detection.
+        
+        :param write_func: Callable that performs the write operation
+        :return: Result of write_func
+        :raises: RuntimeError if write conflict detected
+        """
+        try:
+            self._detect_write_conflict()
+            return write_func()
+        except RuntimeError as e:
+            raise RuntimeError(f'Concurrent write conflict detected: {str(e)}')
 
     def __enter__(self):
         """

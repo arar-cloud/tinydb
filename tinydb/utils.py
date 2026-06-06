@@ -5,6 +5,7 @@ Utility functions.
 from collections import OrderedDict, abc
 from typing import List, Iterator, TypeVar, Generic, Union, Optional, Type, \
     TYPE_CHECKING
+import time
 
 K = TypeVar('K')
 V = TypeVar('V')
@@ -38,7 +39,7 @@ def with_typehint(baseclass: Type[T]):
 
 class LRUCache(abc.MutableMapping, Generic[K, V]):
     """
-    A least-recently used (LRU) cache with a fixed cache size.
+    A least-recently used (LRU) cache with a fixed cache size, TTL-based eviction, and memory limits.
 
     This class acts as a dictionary but has a limited size. If the number of
     entries in the cache exceeds the cache size, the least-recently accessed
@@ -50,9 +51,17 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
     be discarded.
     """
 
-    def __init__(self, capacity=None) -> None:
+    def __init__(self, capacity=None, ttl_seconds: int = 3600) -> None:
+        """
+        Initialize LRU cache with size and TTL limits.
+        
+        :param capacity: Maximum number of items in cache
+        :param ttl_seconds: Time-to-live for cache entries in seconds (default 1 hour)
+        """
         self.capacity = capacity
+        self.ttl_seconds = ttl_seconds
         self.cache: OrderedDict[K, V] = OrderedDict()
+        self._timestamps: OrderedDict[K, float] = OrderedDict()
 
     @property
     def lru(self) -> List[K]:
@@ -71,18 +80,34 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
     def __contains__(self, key: object) -> bool:
         return key in self.cache
 
+    def clear(self) -> None:
+        """Clear all cache entries."""
+        self.cache.clear()
+
     def __setitem__(self, key: K, value: V) -> None:
         self.set(key, value)
 
     def __delitem__(self, key: K) -> None:
         del self.cache[key]
+        if key in self._timestamps:
+            del self._timestamps[key]
 
     def __getitem__(self, key) -> V:
-        value = self.get(key)
-        if value is None:
+        if key not in self.cache:
             raise KeyError(key)
+        
+        # Check if entry has expired
+        current_time = time.time()
+        if key in self._timestamps:
+            if current_time - self._timestamps[key] > self.ttl_seconds:
+                del self.cache[key]
+                del self._timestamps[key]
+                raise KeyError(key)
 
-        return value
+        # Move to end to mark as recently used
+        self.cache.move_to_end(key, last=True)
+        self._timestamps[key] = current_time
+        return self.cache[key]
 
     def __iter__(self) -> Iterator[K]:
         return iter(self.cache)
@@ -91,8 +116,14 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
         value = self.cache.get(key)
 
         if value is not None:
+            # Check if entry has expired (TTL)
+            if key in self._timestamps:
+                if time.time() - self._timestamps[key] > self.ttl_seconds:
+                    del self.cache[key]
+                    del self._timestamps[key]
+                    return default
+            
             self.cache.move_to_end(key, last=True)
-
             return value
 
         return default
