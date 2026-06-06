@@ -30,6 +30,12 @@ classifiers = [
     "Typing :: Typed",
 ]
 
+[project.optional-dependencies]
+retry = [
+    "tenacity>=8.0.0",
+    "backoff>=2.2.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/msiemens/tinydb"
 Documentation = "https://tinydb.readthedocs.org/"
