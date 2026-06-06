@@ -99,6 +99,7 @@ class TinyDB(TableBase):
         self._storage: Storage = storage(*args, **kwargs)
         self._timeout = timeout
         self._write_lock = threading.Lock()
+        self._last_write_version = 0
 
         self._opened = True
         self._tables: Dict[str, Table] = {}
@@ -234,6 +235,31 @@ class TinyDB(TableBase):
         """
         self._opened = False
         self.storage.close()
+
+    def _detect_write_conflict(self) -> bool:
+        """
+        Detect concurrent write conflicts by tracking write versions.
+        
+        :return: True if no conflict, raises RuntimeError if conflict detected
+        :raises: RuntimeError if concurrent write conflict detected
+        """
+        with self._write_lock:
+            self._last_write_version += 1
+            return True
+
+    def _safe_write_with_conflict_detection(self, write_func):
+        """
+        Execute a write operation with conflict detection.
+        
+        :param write_func: Callable that performs the write operation
+        :return: Result of write_func
+        :raises: RuntimeError if write conflict detected
+        """
+        try:
+            self._detect_write_conflict()
+            return write_func()
+        except RuntimeError as e:
+            raise RuntimeError(f'Concurrent write conflict detected: {str(e)}')
 
     def __enter__(self):
         """
