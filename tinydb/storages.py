@@ -38,6 +38,9 @@ def _retry_with_backoff(func, max_retries=3, base_delay=0.1):
                 delay = base_delay * (2 ** attempt) + random.uniform(0, base_delay * 0.1)
                 time.sleep(delay)
             continue
+        except (TypeError, ValueError) as e:
+            # Non-transient validation errors should not be retried
+            raise
 
     if last_exception:
         raise last_exception
@@ -187,11 +190,22 @@ class JSONStorage(Storage):
 
     def write(self, data: Dict[str, Dict[str, Any]]):
         def _write_op():
+            # Pre-write validation: ensure data is a dict
+            if not isinstance(data, dict):
+                raise TypeError(f'Expected dict, got {type(data).__name__}')
+            
             # Move the cursor to the beginning of the file just in case
             self._handle.seek(0)
 
-            # Serialize the database state using the user-provided arguments
-            serialized = json.dumps(data, **self.kwargs)
+            # Serialize the database state with error handling
+            try:
+                serialized = json.dumps(data, **self.kwargs)
+            except (TypeError, ValueError) as e:
+                raise ValueError(f'Failed to serialize data: {str(e)}')
+            
+            # Validate serialization result
+            if not isinstance(serialized, str):
+                raise ValueError('Serialized data must be string')
 
             # Write the serialized data to the file
             try:
@@ -199,7 +213,7 @@ class JSONStorage(Storage):
             except io.UnsupportedOperation:
                 raise IOError('Cannot write to the database. Access mode is "{0}"'.format(self._mode))
 
-            # Ensure the file has been written
+            # Ensure the file has been written with durability guarantees
             self._handle.flush()
             os.fsync(self._handle.fileno())
 
