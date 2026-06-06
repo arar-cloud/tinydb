@@ -23,6 +23,11 @@ from .utils import freeze
 
 __all__ = ('Query', 'QueryLike', 'where')
 
+# Query validation constants
+MAX_QUERY_DEPTH = 50  # Maximum nesting depth for query trees
+MAX_QUERY_SIZE = 10000  # Maximum query object size in bytes (approximate)
+MAX_PATH_LENGTH = 100  # Maximum field path length
+
 
 def is_sequence(obj):
     return hasattr(obj, '__iter__')

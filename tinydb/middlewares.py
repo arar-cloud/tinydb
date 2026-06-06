@@ -2,12 +2,52 @@
 Contains the :class:`base class <tinydb.middlewares.Middleware>` for
 middlewares and implementations.
 """
+import time
+from typing import Optional
+Contains the :class:`base class <tinydb.middlewares.Middleware>` for
+middlewares and implementations.
+"""
 from typing import Optional
 import logging
 
 from tinydb import Storage
 
 logger = logging.getLogger(__name__)
+
+
+class MiddlewareCircuitBreaker:
+    """
+    Circuit breaker for middleware chain execution.
+    Tracks failures and implements graceful degradation.
+    """
+    def __init__(self, failure_threshold: int = 5, timeout: float = 60.0):
+        self.failure_threshold = failure_threshold
+        self.timeout = timeout
+        self.failure_count = 0
+        self.last_failure_time = None
+        self.is_open = False
+    
+    def record_success(self):
+        """Record successful middleware execution."""
+        self.failure_count = 0
+        self.is_open = False
+    
+    def record_failure(self):
+        """Record middleware execution failure."""
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        if self.failure_count >= self.failure_threshold:
+            self.is_open = True
+    
+    def should_trip(self) -> bool:
+        """Check if circuit breaker should trip (fail-open)."""
+        if not self.is_open:
+            return False
+        if self.last_failure_time and time.time() - self.last_failure_time > self.timeout:
+            self.is_open = False
+            self.failure_count = 0
+            return False
+        return True
 
 
 class Middleware:
