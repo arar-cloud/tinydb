@@ -39,7 +39,7 @@ def with_typehint(baseclass: Type[T]):
 
 class LRUCache(abc.MutableMapping, Generic[K, V]):
     """
-    A least-recently used (LRU) cache with a fixed cache size.
+    A least-recently used (LRU) cache with a fixed cache size, TTL-based eviction, and memory limits.
 
     This class acts as a dictionary but has a limited size. If the number of
     entries in the cache exceeds the cache size, the least-recently accessed
@@ -51,9 +51,17 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
     be discarded.
     """
 
-    def __init__(self, capacity=None) -> None:
+    def __init__(self, capacity=None, ttl_seconds: int = 3600) -> None:
+        """
+        Initialize LRU cache with size and TTL limits.
+        
+        :param capacity: Maximum number of items in cache
+        :param ttl_seconds: Time-to-live for cache entries in seconds (default 1 hour)
+        """
         self.capacity = capacity
+        self.ttl_seconds = ttl_seconds
         self.cache: OrderedDict[K, V] = OrderedDict()
+        self._timestamps: OrderedDict[K, float] = OrderedDict()
 
     @property
     def lru(self) -> List[K]:
@@ -96,8 +104,14 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
         value = self.cache.get(key)
 
         if value is not None:
+            # Check if entry has expired (TTL)
+            if key in self._timestamps:
+                if time.time() - self._timestamps[key] > self.ttl_seconds:
+                    del self.cache[key]
+                    del self._timestamps[key]
+                    return default
+            
             self.cache.move_to_end(key, last=True)
-
             return value
 
         return default
