@@ -3,8 +3,11 @@ Contains the :class:`base class <tinydb.middlewares.Middleware>` for
 middlewares and implementations.
 """
 from typing import Optional
+import logging
 
 from tinydb import Storage
+
+logger = logging.getLogger(__name__)
 
 
 class Middleware:
