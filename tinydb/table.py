@@ -3,6 +3,7 @@ This module implements tables, the central place for accessing and manipulating
 data in TinyDB.
 """
 
+import contextlib
 from typing import (
     Callable,
     Dict,
@@ -114,8 +115,37 @@ class Table:
             = self.query_cache_class(capacity=cache_size)
 
         self._next_id = None
+        self._transaction_backup = None
+        self._in_transaction = False
         if persist_empty:
             self._update_table(lambda table: table.clear())
+    
+    @contextlib.contextmanager
+    def _transaction(self):
+        """
+        Context manager for atomic table operations with automatic rollback on failure.
+        
+        Usage:
+            with table._transaction():
+                # Perform operations
+                pass
+        """
+        if self._in_transaction:
+            raise RuntimeError('Nested transactions not supported')
+        
+        try:
+            self._in_transaction = True
+            # Backup current state
+            self._transaction_backup = self._storage.read()
+            yield
+        except Exception as e:
+            # Rollback on failure
+            if self._transaction_backup is not None:
+                self._storage.write(self._transaction_backup)
+            raise
+        finally:
+            self._in_transaction = False
+            self._transaction_backup = None
 
     def __repr__(self):
         args = [
