@@ -91,7 +91,19 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
         self.cache.clear()
 
     def __setitem__(self, key: K, value: V) -> None:
-        self.set(key, value)
+        # Validate inputs for defensive programming
+        if key is None:
+            raise ValueError('Cache key cannot be None')
+        
+        try:
+            self.set(key, value)
+        except Exception as e:
+            # Catch any errors during cache update and remove the key to maintain consistency
+            if key in self.cache:
+                del self.cache[key]
+            if key in self._timestamps:
+                del self._timestamps[key]
+            raise ValueError(f'Failed to cache key {key}: {str(e)}')
 
     def __delitem__(self, key: K) -> None:
         del self.cache[key]
