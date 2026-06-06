@@ -54,6 +54,28 @@ dev = [
 caching = ["cachetools~=5.3"]
 mobile = ["psutil~=6.0"]
 
+[tool.hatch.envs.performance]
+dependencies = [
+    "pytest-benchmark>=4.0",
+    "memory-profiler>=0.61.0",
+]
+
+[tool.hatch.envs.py314]
+python = "3.14"
+dependencies = [
+    "pytest~=9.0",
+    "pytest-benchmark~=4.0",
+    "pytest-cov~=7.0",
+]
+
+[tool.hatch.envs.py313]
+python = "3.13"
+dependencies = [
+    "pytest~=9.0",
+    "pytest-benchmark~=4.0",
+    "pytest-cov~=7.0",
+]
+
 [tool.hatch.build.targets.sdist]
 include = [
     "tinydb",
