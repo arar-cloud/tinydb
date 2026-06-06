@@ -5,6 +5,7 @@ Utility functions.
 from collections import OrderedDict, abc
 from typing import List, Iterator, TypeVar, Generic, Union, Optional, Type, \
     TYPE_CHECKING
+import time
 
 K = TypeVar('K')
 V = TypeVar('V')
