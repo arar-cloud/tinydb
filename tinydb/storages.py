@@ -167,8 +167,21 @@ class JSONStorage(Storage):
                 # Return the cursor to the beginning of the file
                 self._handle.seek(0)
 
-                # Load the JSON contents of the file
-                return json.load(self._handle)
+                # Load the JSON contents of the file with error recovery
+                try:
+                    return json.load(self._handle)
+                except json.JSONDecodeError as e:
+                    # Attempt recovery from corrupted JSON
+                    self._handle.seek(0)
+                    content = self._handle.read()
+                    try:
+                        # Try parsing with lenient approach
+                        data = json.loads(content)
+                        warnings.warn(f'JSONStorage recovered from decode error', RuntimeWarning)
+                        return data
+                    except json.JSONDecodeError:
+                        warnings.warn(f'JSONStorage data corrupted, returning empty', RuntimeWarning)
+                        return {}
 
         return _retry_with_backoff(_read_op, max_retries=3, base_delay=0.1)
 
