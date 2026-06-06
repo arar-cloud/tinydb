@@ -18,7 +18,7 @@ __all__ = ('Storage', 'JSONStorage', 'MemoryStorage')
 def _retry_with_backoff(func, max_retries=3, base_delay=0.1):
     """
     Retry a function with exponential backoff and jitter for transient failures.
-    
+
     :param func: Callable to retry
     :param max_retries: Maximum number of retry attempts
     :param base_delay: Base delay in seconds between retries
@@ -26,18 +26,25 @@ def _retry_with_backoff(func, max_retries=3, base_delay=0.1):
     :raises: Last exception if all retries fail
     """
     last_exception = None
-    
+
     for attempt in range(max_retries + 1):
         try:
             return func()
         except (OSError, IOError) as e:
+                # Cleanup on failure: close handle if open
+                if handle is not None:
+                    try:
+                        handle.close()
+                    except Exception:
+                        pass
+                # Remove incomplete/corrupted file
             last_exception = e
             if attempt < max_retries:
                 # Exponential backoff with jitter
                 delay = base_delay * (2 ** attempt) + random.uniform(0, base_delay * 0.1)
                 time.sleep(delay)
             continue
-    
+
     if last_exception:
         raise last_exception
 
@@ -168,7 +175,7 @@ class JSONStorage(Storage):
 
                 # Load the JSON contents of the file
                 return json.load(self._handle)
-        
+
         return _retry_with_backoff(_read_op, max_retries=3, base_delay=0.1)
 
     def write(self, data: Dict[str, Dict[str, Any]]):
@@ -193,7 +200,7 @@ class JSONStorage(Storage):
             # gotten shorter
             self._handle.truncate()
             return True
-        
+
         _retry_with_backoff(_write_op, max_retries=3, base_delay=0.1)
 
 
