@@ -89,13 +89,25 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
 
     def __delitem__(self, key: K) -> None:
         del self.cache[key]
+        if key in self._timestamps:
+            del self._timestamps[key]
 
     def __getitem__(self, key) -> V:
-        value = self.get(key)
-        if value is None:
+        if key not in self.cache:
             raise KeyError(key)
+        
+        # Check if entry has expired
+        current_time = time.time()
+        if key in self._timestamps:
+            if current_time - self._timestamps[key] > self.ttl_seconds:
+                del self.cache[key]
+                del self._timestamps[key]
+                raise KeyError(key)
 
-        return value
+        # Move to end to mark as recently used
+        self.cache.move_to_end(key, last=True)
+        self._timestamps[key] = current_time
+        return self.cache[key]
 
     def __iter__(self) -> Iterator[K]:
         return iter(self.cache)
