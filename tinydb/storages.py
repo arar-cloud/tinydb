@@ -172,25 +172,29 @@ class JSONStorage(Storage):
         return _retry_with_backoff(_read_op, max_retries=3, base_delay=0.1)
 
     def write(self, data: Dict[str, Dict[str, Any]]):
-        # Move the cursor to the beginning of the file just in case
-        self._handle.seek(0)
+        def _write_op():
+            # Move the cursor to the beginning of the file just in case
+            self._handle.seek(0)
 
-        # Serialize the database state using the user-provided arguments
-        serialized = json.dumps(data, **self.kwargs)
+            # Serialize the database state using the user-provided arguments
+            serialized = json.dumps(data, **self.kwargs)
 
-        # Write the serialized data to the file
-        try:
-            self._handle.write(serialized)
-        except io.UnsupportedOperation:
-            raise IOError('Cannot write to the database. Access mode is "{0}"'.format(self._mode))
+            # Write the serialized data to the file
+            try:
+                self._handle.write(serialized)
+            except io.UnsupportedOperation:
+                raise IOError('Cannot write to the database. Access mode is "{0}"'.format(self._mode))
 
-        # Ensure the file has been written
-        self._handle.flush()
-        os.fsync(self._handle.fileno())
+            # Ensure the file has been written
+            self._handle.flush()
+            os.fsync(self._handle.fileno())
 
-        # Remove data that is behind the new cursor in case the file has
-        # gotten shorter
-        self._handle.truncate()
+            # Remove data that is behind the new cursor in case the file has
+            # gotten shorter
+            self._handle.truncate()
+            return True
+        
+        _retry_with_backoff(_write_op, max_retries=3, base_delay=0.1)
 
 
 class MemoryStorage(Storage):
