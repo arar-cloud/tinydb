@@ -71,6 +71,10 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
     def __contains__(self, key: object) -> bool:
         return key in self.cache
 
+    def clear(self) -> None:
+        """Clear all cache entries."""
+        self.cache.clear()
+
     def __setitem__(self, key: K, value: V) -> None:
         self.set(key, value)
 
