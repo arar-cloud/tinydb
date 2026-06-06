@@ -124,6 +124,9 @@ class Table:
         self._transaction_backup = None
         self._in_transaction = False
         self._operation_timeout = 30.0  # Default timeout in seconds
+        self._write_lock = threading.Lock()  # Per-table write lock for concurrent safety
+        self._operation_version = 0  # Track table operation version for CAS
+        self._pending_operations = []  # Track pending operations for idempotency
         if persist_empty:
             self._update_table(lambda table: table.clear())
     

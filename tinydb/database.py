@@ -101,6 +101,8 @@ class TinyDB(TableBase):
         self._write_lock = threading.Lock()
         self._last_write_version = 0
         self._write_count = 0  # Track total writes for conflict detection
+        self._last_operation_id = None  # Track last operation for deduplication
+        self._operation_checksum_cache = {}  # Cache checksums to detect retries
 
         self._opened = True
         self._tables: Dict[str, Table] = {}

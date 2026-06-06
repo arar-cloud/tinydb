@@ -88,7 +88,10 @@ class QueryInstance:
         :param value: The value to check.
         :return: Whether the value matches this query.
         """
-        return self._test(value)
+        try:
+            return self._test(value)
+        except RecursionError:
+            raise ValueError('Query evaluation exceeded maximum recursion depth')
 
     def __hash__(self) -> int:
         # We calculate the query hash by using the ``hashval`` object which
@@ -179,6 +182,17 @@ class Query(QueryInstance):
         )
     
     @staticmethod
+    def _validate_query_structure(depth: int = 0) -> None:
+        """
+        Validate query structure depth to prevent stack overflow attacks.
+        
+        :param depth: Current recursion depth
+        :raises ValueError: if query depth exceeds MAX_QUERY_DEPTH
+        """
+        if depth > MAX_QUERY_DEPTH:
+            raise ValueError(f'Query depth too deep: {depth} > {MAX_QUERY_DEPTH}')
+    
+    @staticmethod
     def _validate_path_component(component: Union[str, Callable]) -> None:
         """
         Validate a single path component to catch malformed queries early.
@@ -247,6 +261,10 @@ class Query(QueryInstance):
         """
         if not self._path and not allow_empty_path:
             raise ValueError('Query has no path')
+        
+        # Validate path length to prevent excessive nesting
+        if len(self._path) > MAX_PATH_LENGTH:
+            raise ValueError(f'Query path exceeds maximum length of {MAX_PATH_LENGTH}')
 
         def runner(value):
             try:
