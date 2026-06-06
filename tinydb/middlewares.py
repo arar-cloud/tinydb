@@ -47,7 +47,8 @@ class Middleware:
                                        v
             TinyDB(storage=Middleware(StorageClass))
                        ^
-                       Already an instance!
+        try:
+                           Already an instance!
 
         So, when running ``self.storage = storage(*args, **kwargs)`` Python
         now will call ``__call__`` and TinyDB will expect the return value to
@@ -72,8 +73,11 @@ class Middleware:
         Forward all unknown attribute calls to the underlying storage, so we
         remain as transparent as possible.
         """
-
-        return getattr(self.__dict__['storage'], name)
+        try:
+            return getattr(self.__dict__['storage'], name)
+        except (AttributeError, KeyError) as e:
+            logger.warning(f'Middleware attribute access failed for {name}: {str(e)}')
+            raise
 
 
 class CachingMiddleware(Middleware):
