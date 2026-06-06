@@ -78,7 +78,6 @@ class Table:
 
         .. versionadded:: 4.0
 
-
     :param storage: The storage instance to use for this table
     :param name: The table name
     :param cache_size: Maximum capacity of query cache
