@@ -3,6 +3,8 @@ This module contains the main component of TinyDB: the database.
 """
 
 from typing import Dict, Iterator, Set, Type
+import signal
+import threading
 
 from . import JSONStorage
 from .storages import Storage
