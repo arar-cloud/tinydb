@@ -152,21 +152,24 @@ class JSONStorage(Storage):
         self._handle.close()
 
     def read(self) -> Optional[Dict[str, Dict[str, Any]]]:
-        # Get the file size by moving the cursor to the file end and reading
-        # its location
-        self._handle.seek(0, os.SEEK_END)
-        size = self._handle.tell()
+        def _read_op():
+            # Get the file size by moving the cursor to the file end and reading
+            # its location
+            self._handle.seek(0, os.SEEK_END)
+            size = self._handle.tell()
 
-        if not size:
-            # File is empty, so we return ``None`` so TinyDB can properly
-            # initialize the database
-            return None
-        else:
-            # Return the cursor to the beginning of the file
-            self._handle.seek(0)
+            if not size:
+                # File is empty, so we return ``None`` so TinyDB can properly
+                # initialize the database
+                return None
+            else:
+                # Return the cursor to the beginning of the file
+                self._handle.seek(0)
 
-            # Load the JSON contents of the file
-            return json.load(self._handle)
+                # Load the JSON contents of the file
+                return json.load(self._handle)
+        
+        return _retry_with_backoff(_read_op, max_retries=3, base_delay=0.1)
 
     def write(self, data: Dict[str, Dict[str, Any]]):
         # Move the cursor to the beginning of the file just in case
