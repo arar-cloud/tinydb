@@ -7,8 +7,9 @@ from typing import Optional
 Contains the :class:`base class <tinydb.middlewares.Middleware>` for
 middlewares and implementations.
 """
-from typing import Optional
+from typing import Optional, Callable
 import logging
+import time
 
 from tinydb import Storage
 
@@ -64,6 +65,30 @@ class Middleware:
     def __init__(self, storage_cls) -> None:
         self._storage_cls = storage_cls
         self.storage: Storage = None  # type: ignore
+        self._circuit_breaker = MiddlewareCircuitBreaker()
+    
+    def execute_safe(self, func: Callable, *args, **kwargs):
+        """
+        Execute middleware function with circuit breaker protection.
+        
+        :param func: Middleware function to execute
+        :param args: Positional arguments
+        :param kwargs: Keyword arguments
+        :return: Function result or None if circuit is open
+        """
+        if self._circuit_breaker.should_trip():
+            # Circuit is open - skip this middleware
+            return None
+        
+        try:
+            result = func(*args, **kwargs)
+            self._circuit_breaker.record_success()
+            return result
+        except Exception as e:
+            self._circuit_breaker.record_failure()
+            # Log failure but don't propagate - allow graceful degradation
+            logger.warning(f'Middleware execution failed: {str(e)}')
+            return None
 
     def __call__(self, *args, **kwargs):
         """
