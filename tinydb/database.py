@@ -86,15 +86,19 @@ class TinyDB(TableBase):
     #: .. versionadded:: 4.0
     default_storage_class = JSONStorage
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, timeout: float = 30.0, **kwargs) -> None:
         """
         Create a new instance of TinyDB.
+
+        :param timeout: Timeout in seconds for storage operations. Default 30 seconds.
         """
 
         storage = kwargs.pop('storage', self.default_storage_class)
 
         # Prepare the storage
         self._storage: Storage = storage(*args, **kwargs)
+        self._timeout = timeout
+        self._write_lock = threading.Lock()
 
         self._opened = True
         self._tables: Dict[str, Table] = {}
