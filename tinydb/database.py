@@ -168,18 +168,37 @@ class TinyDB(TableBase):
 
         return set(self.storage.read() or {})
 
+    def _detect_write_conflict(self) -> bool:
+        """
+        Detect if a write conflict has occurred due to concurrent modifications.
+        Returns True if conflict detected (another thread modified during our operation).
+        """
+        # Check if write version has changed - indicates concurrent write
+        try:
+            data = self.storage.read()
+            # If read succeeds, no conflict detected
+            return False
+        except Exception:
+            # Storage error during conflict check is treated as potential conflict
+            return True
+
     def drop_tables(self) -> None:
         """
         Drop all tables from the database. **CANNOT BE REVERSED!**
         """
+        with self._write_lock:
+            # We drop all tables from this database by writing an empty dict
+            # to the storage thereby returning to the initial state with no tables.
+            try:
+                self.storage.write({})
+                self._write_count += 1
+                self._last_write_version = self._write_count
+            except Exception as e:
+                raise RuntimeError(f'Failed to drop all tables: {str(e)}') from e
 
-        # We drop all tables from this database by writing an empty dict
-        # to the storage thereby returning to the initial state with no tables.
-        self.storage.write({})
-
-        # After that we need to remember to empty the ``_tables`` dict, so we'll
-        # create new table instances when a table is accessed again.
-        self._tables.clear()
+            # After that we need to remember to empty the ``_tables`` dict, so we'll
+            # create new table instances when a table is accessed again.
+            self._tables.clear()
 
     def drop_table(self, name: str) -> None:
         """

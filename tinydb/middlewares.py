@@ -68,6 +68,38 @@ class Middleware:
 
         return self
 
+    def read(self) -> str:
+        """
+        Read the storage.
+
+        This is called when the database reads from the storage.
+        The default implementation forwards the read call to the storage
+        with exception isolation and context wrapping.
+        """
+        try:
+            return self.storage.read()
+        except Exception as e:
+            # Wrap exception with middleware context for better debugging
+            raise RuntimeError(
+                f'Middleware read() failed in {self.__class__.__name__}: {str(e)}'
+            ) from e
+
+    def write(self, data: str) -> None:
+        """
+        Write to the storage.
+
+        This is called when the database writes to the storage.
+        The default implementation forwards the write call to the storage
+        with exception isolation and context wrapping.
+        """
+        try:
+            return self.storage.write(data)
+        except Exception as e:
+            # Wrap exception with middleware context for better debugging
+            raise RuntimeError(
+                f'Middleware write() failed in {self.__class__.__name__}: {str(e)}'
+            ) from e
+
     def __getattr__(self, name):
         """
         Forward all unknown attribute calls to the underlying storage, so we
@@ -103,7 +135,13 @@ class CachingMiddleware(Middleware):
     def read(self):
         if self.cache is None:
             # Empty cache: read from the storage
-            self.cache = self.storage.read()
+            try:
+                self.cache = self.storage.read()
+            except Exception as e:
+                logger.error(f'CachingMiddleware read() failed: {str(e)}')
+                raise RuntimeError(
+                    f'CachingMiddleware read() failed: {str(e)}'
+                ) from e
 
         # Return the cached data
         return self.cache
