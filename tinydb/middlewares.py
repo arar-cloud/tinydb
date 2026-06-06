@@ -2,11 +2,6 @@
 Contains the :class:`base class <tinydb.middlewares.Middleware>` for
 middlewares and implementations.
 """
-import time
-from typing import Optional
-Contains the :class:`base class <tinydb.middlewares.Middleware>` for
-middlewares and implementations.
-"""
 from typing import Optional, Callable
 import logging
 import time
