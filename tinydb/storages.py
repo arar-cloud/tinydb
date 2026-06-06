@@ -15,6 +15,33 @@ from typing import Dict, Any, Optional
 __all__ = ('Storage', 'JSONStorage', 'MemoryStorage')
 
 
+def _retry_with_backoff(func, max_retries=3, base_delay=0.1):
+    """
+    Retry a function with exponential backoff and jitter for transient failures.
+    
+    :param func: Callable to retry
+    :param max_retries: Maximum number of retry attempts
+    :param base_delay: Base delay in seconds between retries
+    :return: Result of the function call
+    :raises: Last exception if all retries fail
+    """
+    last_exception = None
+    
+    for attempt in range(max_retries + 1):
+        try:
+            return func()
+        except (OSError, IOError) as e:
+            last_exception = e
+            if attempt < max_retries:
+                # Exponential backoff with jitter
+                delay = base_delay * (2 ** attempt) + random.uniform(0, base_delay * 0.1)
+                time.sleep(delay)
+            continue
+    
+    if last_exception:
+        raise last_exception
+
+
 def touch(path: str, create_dirs: bool):
     """
     Create a file if it doesn't exist yet.
