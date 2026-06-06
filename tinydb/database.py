@@ -100,6 +100,7 @@ class TinyDB(TableBase):
         self._timeout = timeout
         self._write_lock = threading.Lock()
         self._last_write_version = 0
+        self._write_count = 0  # Track total writes for conflict detection
 
         self._opened = True
         self._tables: Dict[str, Table] = {}
