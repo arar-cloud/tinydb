@@ -124,8 +124,44 @@ class Table:
         self._next_id = None
         self._transaction_backup = None
         self._in_transaction = False
+        self._operation_timeout = 30.0  # Default timeout in seconds
         if persist_empty:
             self._update_table(lambda table: table.clear())
+    
+    @contextlib.contextmanager
+    def _timeout_guard(self, timeout: Optional[float] = None):
+        """
+        Context manager to enforce operation timeouts and prevent indefinite hangs.
+        
+        :param timeout: Timeout in seconds. If None, uses the instance default (30.0).
+                        If 0 or negative, no timeout is enforced.
+        """
+        if timeout is None:
+            timeout = self._operation_timeout
+        
+        if not timeout or timeout <= 0:
+            # No timeout - yield control directly
+            yield
+            return
+        
+        def timeout_handler(signum, frame):
+            raise OperationTimeout(
+                f'Table operation exceeded timeout of {timeout} seconds'
+            )
+        
+        # Only use signal-based timeout on Unix systems (not Windows)
+        try:
+            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(int(timeout) + 1)  # +1 to account for rounding
+            try:
+                yield
+            finally:
+                signal.alarm(0)  # Cancel alarm
+                signal.signal(signal.SIGALRM, old_handler)
+        except (ValueError, RuntimeError):
+            # signal.alarm() raises ValueError on non-Unix systems
+            # In such cases, just yield without timeout enforcement
+            yield
     
     @contextlib.contextmanager
     def _transaction(self):
