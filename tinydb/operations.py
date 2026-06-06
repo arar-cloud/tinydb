@@ -70,18 +70,28 @@ def subtract(field: str, n: Union[int, float]) -> Callable[[Mapping], None]:
 def set(field: str, val: Any) -> Callable[[Mapping], None]:
     """
     Set a given field to ``val``.
+    Includes comprehensive validation for safety and reliability.
     """
+    # Validate value for safety
     _validate_operation_data(val, 'set')
+    
+    # Additional validation for problematic types
+    if isinstance(val, (type, type(lambda: None))):
+        raise TypeError(f'Cannot store {type(val).__name__} objects in set operation')
+    
+    # Validate field parameter
+    if not isinstance(field, str):
+        raise TypeError(
+            f'Document field must be string, got {type(field).__name__}: {repr(field)}'
+        )
+    if not field:
+        raise ValueError('Field name cannot be empty string')
+    
     def transform(doc: Mapping):
         # Validate input is mutable (dict-like)
         if not hasattr(doc, '__setitem__'):
             raise TypeError(
                 f'Cannot set fields on non-dict element of type {type(doc).__name__}'
-            )
-        # Validate field key is string-like
-        if not isinstance(field, str):
-            raise TypeError(
-                f'Document field must be string, got {type(field).__name__}: {repr(field)}'
             )
         # Set field with type validation
         doc[field] = val
