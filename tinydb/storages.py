@@ -31,13 +31,7 @@ def _retry_with_backoff(func, max_retries=3, base_delay=0.1):
         try:
             return func()
         except (OSError, IOError) as e:
-                # Cleanup on failure: close handle if open
-                if handle is not None:
-                    try:
-                        handle.close()
-                    except Exception:
-                        pass
-                # Remove incomplete/corrupted file
+            # Cleanup on failure: close handle if open
             last_exception = e
             if attempt < max_retries:
                 # Exponential backoff with jitter
