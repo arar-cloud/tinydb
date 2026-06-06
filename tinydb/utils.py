@@ -58,6 +58,12 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
         :param capacity: Maximum number of items in cache
         :param ttl_seconds: Time-to-live for cache entries in seconds (default 1 hour)
         """
+        # Validate cache parameters
+        if capacity is not None and capacity < 1:
+            raise ValueError(f'Cache capacity must be at least 1, got {capacity}')
+        if ttl_seconds is not None and ttl_seconds < 0:
+            raise ValueError(f'Cache TTL must be non-negative, got {ttl_seconds}')
+        
         self.capacity = capacity
         self.ttl_seconds = ttl_seconds
         self.cache: OrderedDict[K, V] = OrderedDict()
@@ -129,17 +135,26 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
         return default
 
     def set(self, key: K, value: V):
+        # Guard against None keys and values
+        if key is None:
+            raise ValueError('Cache key cannot be None')
+        if value is None:
+            raise ValueError('Cache value cannot be None')
+        
         if key in self.cache:
             self.cache[key] = value
             self.cache.move_to_end(key, last=True)
         else:
             self.cache[key] = value
+            self._timestamps[key] = time.time()
 
             # Check, if the cache is full and we have to remove old items
             # If the queue is of unlimited size, self.capacity is NaN and
             # x > NaN is always False in Python and the cache won't be cleared.
             if self.capacity is not None and self.length > self.capacity:
-                self.cache.popitem(last=False)
+                removed_key = self.cache.popitem(last=False)[0]
+                if removed_key in self._timestamps:
+                    del self._timestamps[removed_key]
 
 
 class FrozenDict(dict):
