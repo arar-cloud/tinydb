@@ -174,6 +174,17 @@ class FrozenDict(dict):
 
 def freeze(obj, path: str = 'root'):
     """
+    Recursively freeze (convert to immutable) a nested data structure.
+    
+    CONSISTENCY NOTE: This function raises TypeError for invalid types (not None).
+    See other utility functions for their specific error handling patterns.
+    
+    :param obj: Object to freeze
+    :param path: Debug path for error reporting
+    :return: Frozen representation of object
+    :raises TypeError: If object cannot be frozen (with diagnostic context)
+    """
+    """
     Freeze an object by making it immutable and thus hashable.
     """
     if isinstance(obj, dict):
