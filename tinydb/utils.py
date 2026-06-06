@@ -11,7 +11,7 @@ V = TypeVar('V')
 D = TypeVar('D')
 T = TypeVar('T')
 
-__all__ = ('LRUCache', 'freeze', 'with_typehint')
+__all__ = ('LRUCache', 'freeze', 'with_typehint', 'bootstrap_batch_generation')
 
 
 def with_typehint(baseclass: Type[T]):
@@ -157,3 +157,20 @@ def freeze(obj):
     else:
         # Don't handle all other objects
         return obj
+
+
+def bootstrap_batch_generation(start_id: int, batch_size: int) -> list[int]:
+    """
+    Generate a batch of sequential IDs efficiently.
+    
+    This function allocates multiple IDs in a single operation,
+    reducing redundant counter increments when inserting multiple documents.
+    
+    Args:
+        start_id: The starting ID value
+        batch_size: Number of IDs to generate
+        
+    Returns:
+        A list of sequential IDs from start_id to start_id + batch_size - 1
+    """
+    return list(range(start_id, start_id + batch_size))

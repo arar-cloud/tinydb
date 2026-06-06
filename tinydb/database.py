@@ -272,3 +272,14 @@ class TinyDB(TableBase):
         Return an iterator for the default table's documents.
         """
         return iter(self.table(self.default_table_name))
+
+    def insert_multiple(self, values: list[dict]) -> list[int]:
+        """
+        Insert multiple documents into the default table in a single batch.
+
+        This is more efficient than calling insert() repeatedly.
+
+        :param values: list of documents to insert.
+        :return: list of inserted document IDs.
+        """
+        return self.table(self.default_table_name).insert_multiple(values)
