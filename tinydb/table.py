@@ -223,6 +223,30 @@ class Table:
             self._in_transaction = False
             self._transaction_backup = None
 
+    def _atomic_update_with_cas(self, expected_version: int, update_func: Callable) -> Tuple[bool, List[int]]:
+        """
+        Perform atomic update with compare-and-swap semantics.
+        Returns (success: bool, updated_doc_ids: List[int])
+        
+        :param expected_version: Expected table version before update
+        :param update_func: Function that performs the update
+        :return: Tuple of (success, list of updated doc IDs)
+        """
+        with self._write_lock:
+            # Check for concurrent modification
+            if self._operation_version != expected_version:
+                return (False, [])
+            
+            try:
+                # Perform update
+                result = update_func()
+                # Increment version on successful update
+                self._operation_version += 1
+                return (True, result if isinstance(result, list) else [])
+            except Exception:
+                # On error, version is not incremented
+                return (False, [])
+
     def __repr__(self):
         args = [
             'name={!r}'.format(self.name),
