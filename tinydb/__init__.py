@@ -24,9 +24,32 @@ Usage example:
 5
 """
 
+import sys
 from .queries import Query, where
 from .storages import Storage, JSONStorage
 from .database import TinyDB
 from .version import __version__
 
 __all__ = ('TinyDB', 'Storage', 'JSONStorage', 'Query', 'where')
+
+def _verify_startup_compatibility():
+    """
+    Verify TinyDB compatibility at initialization.
+    Checks Python version and validates that core modules are properly loaded.
+    """
+    try:
+        # Validate Python version (3.6+)
+        if sys.version_info < (3, 6):
+            raise RuntimeError(
+                f'TinyDB requires Python 3.6+, found {sys.version_info.major}.{sys.version_info.minor}'
+            )
+        
+        # Validate that core modules are accessible
+        _ = (TinyDB, JSONStorage, Query, where)
+        
+        return True
+    except Exception as e:
+        raise RuntimeError(f'TinyDB initialization failed: {str(e)}') from e
+
+# Run compatibility check on module import
+_verify_startup_compatibility()
