@@ -47,6 +47,8 @@ def set(field: str, val: Any) -> Callable[[Mapping], None]:
     Set a given field to ``val``.
     """
     def transform(doc: Mapping):
+        if not isinstance(doc, dict):
+            raise TypeError(f'Set operation requires dict, got {type(doc).__name__}')
         doc[field] = val
 
     return transform
