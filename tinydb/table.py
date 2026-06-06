@@ -4,6 +4,8 @@ data in TinyDB.
 """
 
 import contextlib
+import signal
+import threading
 from typing import (
     Callable,
     Dict,
@@ -22,6 +24,11 @@ from typing import (
 from .queries import QueryLike
 from .storages import Storage
 from .utils import LRUCache
+
+
+class OperationTimeout(Exception):
+    """Raised when a table operation exceeds its timeout limit."""
+    pass
 
 __all__ = ('Document', 'Table')
 
