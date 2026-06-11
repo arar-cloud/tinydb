@@ -4,6 +4,7 @@ data in TinyDB.
 """
 
 from typing import (
+    Any,
     Callable,
     Dict,
     Iterable,
@@ -177,6 +178,7 @@ class Table:
 
         # See below for details on ``Table._update``
         self._update_table(updater)
+        self._query_cache.clear()
 
         return doc_id
 
@@ -221,6 +223,7 @@ class Table:
 
         # See below for details on ``Table._update``
         self._update_table(updater)
+        self._query_cache.clear()
 
         return doc_ids
 
@@ -236,7 +239,10 @@ class Table:
         # of all documents by using the ``list`` constructor to perform the
         # conversion.
 
-        return list(iter(self))
+        # Use generator expression to avoid intermediate list materialization
+        table_data = self._get_table_data()
+        return [self.document_class(value, self.document_id_class(doc_id))
+                for doc_id, value in table_data.items()]
 
     def search(self, cond: QueryLike) -> List[Document]:
         """
@@ -253,11 +259,12 @@ class Table:
             return cached_results[:]
 
         # Perform the search by applying the query to all documents.
-        # Then, only if the document matches the query, convert it
-        # to the document class and document ID class.
+        # Filter first without materializing Document objects, then convert
+        # only matching documents to avoid unnecessary object creation.
+        table = self._read_table()
         docs = [
             self.document_class(doc, self.document_id_class(doc_id))
-            for doc_id, doc in self._read_table().items()
+            for doc_id, doc in table.items()
             if cond(doc)
         ]
 
