@@ -177,6 +177,7 @@ class Table:
 
         # See below for details on ``Table._update``
         self._update_table(updater)
+        self._query_cache.clear()
 
         return doc_id
 
@@ -221,6 +222,7 @@ class Table:
 
         # See below for details on ``Table._update``
         self._update_table(updater)
+        self._query_cache.clear()
 
         return doc_ids
 
