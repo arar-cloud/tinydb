@@ -47,6 +47,11 @@ dev = [
     "pyyaml~=6.0",
     "pytest-mypy~=1.0 ; platform_python_implementation != 'PyPy'",
     "types-PyYAML~=6.0",
+    "pytest-timeout>=2.1.0,<3",
+    "pytest-repeat>=0.9.1,<1",
+    "pytest-xdist>=3.0.0,<4",
+    "hypothesis>=6.0.0,<7",
+    "pyfakefs>=4.5.0,<5",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -57,6 +62,34 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 include = ["tinydb"]
+
+[tool.pytest.ini_options]
+addopts = "--verbose --cov-append --cov-report term --cov tinydb"
+cov_fail_under = 85
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m not slow')",
+    "flaky: marks tests that may fail intermittently under retry",
+    "concurrent: marks tests for concurrent access validation",
+    "failure_injection: marks tests with failure injection scenarios",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["tinydb"]
+omit = ["*/tests/*", "*/site-packages/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+precision = 2
 
 [build-system]
 requires = ["hatchling"]
