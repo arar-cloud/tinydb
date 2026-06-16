@@ -4,6 +4,9 @@ version = "4.8.2"
 description = "TinyDB is a tiny, document oriented database optimized for your happiness :)"
 authors = [{ name = "Markus Siemens", email = "markus@m-siemens.de" }]
 requires-python = ">=3.10,<4"
+dependencies = [
+    "typing-extensions>=4.0,<5.0; python_version < '3.11'",
+]
 readme = "README.rst"
 license = "MIT"
 keywords = [
@@ -38,15 +41,15 @@ Issues = "https://github.com/msiemens/tinydb/issues"
 
 [dependency-groups]
 dev = [
-    "pytest~=9.0",
-    "pytest-pycodestyle~=2.3",
-    "pytest-cov~=7.0",
-    "pycodestyle~=2.10",
-    "sphinx~=8.1",
-    "coveralls~=4.0",
-    "pyyaml~=6.0",
-    "pytest-mypy~=1.0 ; platform_python_implementation != 'PyPy'",
-    "types-PyYAML~=6.0",
+    "pytest>=9.0,<10.0",
+    "pytest-pycodestyle>=2.3,<3.0",
+    "pytest-cov>=7.0,<8.0",
+    "pycodestyle>=2.10,<3.0",
+    "sphinx>=8.1,<9.0",
+    "coveralls>=4.0,<5.0",
+    "pyyaml>=6.0,<7.0",
+    "pytest-mypy>=1.0,<2.0 ; platform_python_implementation != 'PyPy'",
+    "types-PyYAML>=6.0,<7.0",
 ]
 
 [tool.hatch.build.targets.sdist]
