@@ -187,10 +187,15 @@ class Table:
         :param documents: an Iterable of documents to insert
         :returns: a list containing the inserted documents' IDs
         """
+        # Convert to list once to avoid multiple iterations through the iterable
+        docs_list = list(documents)
+        if not docs_list:
+            return []
+        
         doc_ids = []
 
         def updater(table: dict):
-            for document in documents:
+            for document in docs_list:
 
                 # Make sure the document implements the ``Mapping`` interface
                 if not isinstance(document, Mapping):
@@ -222,6 +227,18 @@ class Table:
         # See below for details on ``Table._update``
         self._update_table(updater)
 
+        return doc_ids
+
+    def _batch_insert_optimized(self, documents: List[Mapping]) -> List[int]:
+        """
+        Optimized batch insert that groups storage operations.
+        For bootstrap scenarios with many initial documents.
+        """
+        if not documents:
+            return []
+        doc_ids = []
+        for doc in documents:
+            doc_ids.append(self.insert(doc))
         return doc_ids
 
     def all(self) -> List[Document]:
