@@ -61,6 +61,13 @@ include = [
 [tool.hatch.build.targets.wheel]
 include = ["tinydb"]
 
+[tool.pytest.ini_options]
+retry = 2
+retry_delay = 0.5
+markers = [
+    "flaky: marks tests as flaky (deselect with '-m \"not flaky\"')",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
