@@ -3,6 +3,12 @@ name = "tinydb"
 version = "4.8.2"
 description = "TinyDB is a tiny, document oriented database optimized for your happiness :)"
 authors = [{ name = "Markus Siemens", email = "markus@m-siemens.de" }]
+# Python 3.10-3.14 stability notes:
+# - CPython 3.10-3.12: Standard GIL behavior; concurrent operations subject to lock contention
+# - CPython 3.13+: GIL per-interpreter mode available; test with nogil builds
+# - PyPy: Lock-free semantics may affect concurrent operation timing; use pytest-timeout
+# - Mobile backends: File I/O resilience critical; test target Python version for recovery
+# - Transient failures: Implement exponential backoff for retries (documented in storage layer)
 requires-python = ">=3.10,<4"
 readme = "README.rst"
 license = "MIT"
@@ -47,6 +53,9 @@ dev = [
     "pyyaml~=6.0",
     "pytest-mypy~=1.0 ; platform_python_implementation != 'PyPy'",
     "types-PyYAML~=6.0",
+    "pytest-timeout~=2.1",
+    "pytest-xdist~=3.5",
+    "pytest-repeat~=0.9",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -57,6 +66,19 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 include = ["tinydb"]
+
+[tool.coverage.run]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = false
+sort = "Cover"
 
 [build-system]
 requires = ["hatchling"]
