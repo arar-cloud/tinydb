@@ -48,6 +48,8 @@ dev = [
     "pytest-mypy~=1.0 ; platform_python_implementation != 'PyPy'",
     "types-PyYAML~=6.0",
     "pytest-retry~=1.0",
+    "memory-profiler",
+    "pytest-benchmark",
 ]
 
 [tool.hatch.build.targets.sdist]
