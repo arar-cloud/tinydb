@@ -47,6 +47,9 @@ dev = [
     "pyyaml~=6.0",
     "pytest-mypy~=1.0 ; platform_python_implementation != 'PyPy'",
     "types-PyYAML~=6.0",
+    "pytest-timeout~=2.1",
+    "pytest-xdist~=3.5",
+    "pytest-repeat~=0.9",
 ]
 
 [tool.hatch.build.targets.sdist]
