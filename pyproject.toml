@@ -47,6 +47,9 @@ dev = [
     "pyyaml~=6.0",
     "pytest-mypy~=1.0 ; platform_python_implementation != 'PyPy'",
     "types-PyYAML~=6.0",
+    "pytest-retry~=1.0",
+    "memory-profiler",
+    "pytest-benchmark",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -57,6 +60,13 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 include = ["tinydb"]
+
+[tool.pytest.ini_options]
+retry = 2
+retry_delay = 0.5
+markers = [
+    "flaky: marks tests as flaky (deselect with '-m \"not flaky\"')",
+]
 
 [build-system]
 requires = ["hatchling"]
