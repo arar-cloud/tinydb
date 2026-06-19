@@ -47,6 +47,10 @@ dev = [
     "pyyaml==6.0.1",
     "pytest-mypy==1.0.0 ; platform_python_implementation != 'PyPy'",
     "types-PyYAML==6.0.12",
+    "bandit==1.7.5",
+]
+security = [
+    "bandit==1.7.5",
 ]
 
 [tool.hatch.build.targets.sdist]
