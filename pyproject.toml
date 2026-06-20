@@ -4,6 +4,15 @@ version = "4.8.2"
 description = "TinyDB is a tiny, document oriented database optimized for your happiness :)"
 authors = [{ name = "Markus Siemens", email = "markus@m-siemens.de" }]
 requires-python = ">=3.10,<4"
+
+[project.stability]
+max_retry_attempts = 5
+uptime_target_percent = 99.9
+initial_backoff_ms = 100
+max_backoff_ms = 5000
+jitter_fraction = 0.1
+transient_error_codes = ["EAGAIN", "EWOULDBLOCK", "EMFILE", "ENFILE", "ENOMEM", "ETIMEDOUT", "EBUSY"]
+permanent_error_codes = ["ENOSPC", "EPERM", "EACCES", "EINVAL", "EISDIR", "ENOTDIR"]
 readme = "README.rst"
 license = "MIT"
 keywords = [
