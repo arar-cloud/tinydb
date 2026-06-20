@@ -6,11 +6,23 @@ implementations.
 import errno
 import io
 import json
+import logging
 import os
 import time
 import warnings
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Union
+
+try:
+    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+except ImportError:
+    # Fallback if tenacity not available
+    def retry(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
+logger = logging.getLogger(__name__)
 
 __all__ = ('Storage', 'JSONStorage', 'MemoryStorage')
 
