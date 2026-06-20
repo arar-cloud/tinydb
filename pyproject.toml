@@ -30,6 +30,20 @@ classifiers = [
     "Typing :: Typed",
 ]
 
+[project.optional-dependencies]
+resilience = [
+    "tenacity>=8.2.3",
+    "pydantic>=2.0",
+]
+test = [
+    "pytest>=7.0",
+    "pytest-timeout>=2.1.0",
+    "pytest-xdist>=3.5.0",
+    "pytest-mock>=3.12.0",
+]
+# Development guide: Run concurrent tests with 'pytest -n auto'
+# Run chaos/resilience tests with 'pytest -m chaos --timeout=300'
+
 [project.urls]
 Homepage = "https://github.com/msiemens/tinydb"
 Documentation = "https://tinydb.readthedocs.org/"
@@ -57,6 +71,12 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 include = ["tinydb"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "--timeout=300 --tb=short"
 
 [build-system]
 requires = ["hatchling"]
