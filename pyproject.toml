@@ -70,3 +70,7 @@ fail_under = 85
 precision = 2
 show_missing = true
 skip_covered = false
+
+[tool.tinydb]
+stability_target = "99.9% uptime for file-based storage operations"
+recovery_documentation = "docs/reliability/failure_modes.md"
