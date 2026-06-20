@@ -15,4 +15,15 @@ python:
       extra_requirements:
         - docs
 
+# Include new stability documentation
+include_patterns:
+  - "docs/RETRY_STRATEGY.md"
+  - "docs/MOBILE_RELIABILITY.md"
+
+# Exclude non-documentation files
+exclude_patterns:
+  - "tests/**"
+  - "**/.git/**"
+  - "**/.github/**"
+
 formats: all
