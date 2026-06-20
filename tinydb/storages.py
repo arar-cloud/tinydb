@@ -8,12 +8,12 @@ import json
 import os
 import warnings
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 
 __all__ = ('Storage', 'JSONStorage', 'MemoryStorage')
 
 
-def touch(path: str, create_dirs: bool):
+def touch(path: str, create_dirs: bool) -> None:
     """
     Create a file if it doesn't exist yet.
 
@@ -45,7 +45,7 @@ class Storage(ABC):
     # implemented read and write
 
     @abstractmethod
-    def read(self) -> Optional[Dict[str, Dict[str, Any]]]:
+    def read(self) -> Optional[Dict[str, Dict[str, Any]]]:  # type: ignore[override]
         """
         Read the current state.
 
@@ -81,7 +81,14 @@ class JSONStorage(Storage):
     Store the data in a JSON file.
     """
 
-    def __init__(self, path: str, create_dirs=False, encoding=None, access_mode='r+', **kwargs):
+    def __init__(
+        self,
+        path: str,
+        create_dirs: bool = False,
+        encoding: Optional[str] = None,
+        access_mode: str = 'r+',
+        **kwargs,
+    ) -> None:
         """
         Create a new instance.
 
@@ -139,7 +146,7 @@ class JSONStorage(Storage):
             # Load the JSON contents of the file
             return json.load(self._handle)
 
-    def write(self, data: Dict[str, Dict[str, Any]]):
+    def write(self, data: Dict[str, Dict[str, Any]]) -> None:  # type: ignore[override]
         # Move the cursor to the beginning of the file just in case
         self._handle.seek(0)
 
@@ -166,7 +173,7 @@ class MemoryStorage(Storage):
     Store the data as JSON in memory.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Create a new instance.
         """
