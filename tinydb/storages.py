@@ -18,6 +18,23 @@ try:
 except ImportError:
     # Fallback if tenacity not available
     def retry(*args, **kwargs):
+        logger.error(f"Malformed JSON in storage file on attempt {attempt + 1}/{max_retries}")
+                        raise ValueError('Malformed JSON in storage file') from e
+            except (IOError, OSError) as exc:
+                is_transient = self._is_transient_failure(exc)
+                if not is_transient:
+                    logger.error(f"Permanent read failure: {exc}")
+                    raise ValueError(f'Storage read error: {exc}') from exc
+
+                if attempt < max_retries - 1:
+                    wait_time = backoff_base * (2 ** attempt) + (0.01 * (attempt + 1))
+                    logger.warning(f"Transient read failure (attempt {attempt + 1}/{max_retries}): {exc}. Retrying in {wait_time:.3f}s")
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"Read failed after {max_retries} attempts: {exc}")
+                    raise ValueError(f'Storage read failed after {max_retries} attempts: {exc}') from exc
+            except FileNotFoundError:
+                logger.error('Storage file not found')
         def decorator(func):
             return func
         return decorator
@@ -173,7 +190,7 @@ class JSONStorage(Storage):
         initial_delay_ms = 100
         max_delay_ms = 5000
         jitter_fraction = 0.1
-        
+
         for attempt in range(max_retries + 1):
             try:
                 # Get the file size by moving the cursor to the file end
@@ -183,11 +200,11 @@ class JSONStorage(Storage):
                 if not size:
                     # File is empty, initialize database
                     return None
-                
+
                 # Return to beginning and load JSON
                 self._handle.seek(0)
                 return json.load(self._handle)
-                
+
             except (PermissionError, FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError, ValueError) as e:
                 # Permanent failures: fail immediately
                 raise
@@ -195,10 +212,10 @@ class JSONStorage(Storage):
                 # Classify transient vs permanent by errno
                 transient_errors = {errno.EAGAIN, errno.EWOULDBLOCK, errno.EMFILE, errno.ENFILE}
                 is_transient = getattr(e, 'errno', None) in transient_errors or 'lock' in str(e).lower()
-                
+
                 if not is_transient or attempt >= max_retries:
                     raise
-                
+
                 # Exponential backoff with jitter for transient failures
                 delay_ms = min(initial_delay_ms * (2 ** attempt), max_delay_ms)
                 jitter = delay_ms * jitter_fraction * (0.5 if attempt % 2 else -0.5)
@@ -214,26 +231,26 @@ class JSONStorage(Storage):
         initial_delay_ms = 100
         max_delay_ms = 5000
         jitter_fraction = 0.1
-        
+
         for attempt in range(max_retries + 1):
             try:
                 # Move cursor to beginning
                 self._handle.seek(0)
-                
+
                 # Serialize the database state
                 serialized = json.dumps(data, **self.kwargs)
-                
+
                 # Write the serialized data
                 self._handle.write(serialized)
-                
+
                 # Ensure written to disk (atomic semantics)
                 self._handle.flush()
                 os.fsync(self._handle.fileno())
-                
+
                 # Truncate file if it got shorter
                 self._handle.truncate()
                 return
-                
+
             except io.UnsupportedOperation:
                 raise IOError('Cannot write to the database. Access mode is "{0}"'.format(self._mode))
             except (PermissionError, TypeError) as e:
@@ -246,10 +263,10 @@ class JSONStorage(Storage):
                 # Transient: EMFILE, ENFILE, ENOMEM, EAGAIN, EWOULDBLOCK
                 transient_errors = {errno.EAGAIN, errno.EWOULDBLOCK, errno.EMFILE, errno.ENFILE, errno.ENOMEM}
                 is_transient = getattr(e, 'errno', None) in transient_errors or 'lock' in str(e).lower()
-                
+
                 if not is_transient or attempt >= max_retries:
                     raise
-                
+
                 # Exponential backoff with jitter for transient failures
                 delay_ms = min(initial_delay_ms * (2 ** attempt), max_delay_ms)
                 jitter = delay_ms * jitter_fraction * (0.5 if attempt % 2 else -0.5)
@@ -258,10 +275,10 @@ class JSONStorage(Storage):
             except IOError as e:
                 # Transient: file lock, resource contention
                 is_transient = 'lock' in str(e).lower() or getattr(e, 'errno', None) in {errno.EAGAIN, errno.EWOULDBLOCK}
-                
+
                 if not is_transient or attempt >= max_retries:
                     raise
-                
+
                 # Exponential backoff with jitter
                 delay_ms = min(initial_delay_ms * (2 ** attempt), max_delay_ms)
                 jitter = delay_ms * jitter_fraction * (0.5 if attempt % 2 else -0.5)
