@@ -172,25 +172,67 @@ class JSONStorage(Storage):
                 time.sleep(max(0, sleep_time))
 
     def write(self, data: Dict[str, Dict[str, Any]]) -> None:  # type: ignore[override]
-        # Move the cursor to the beginning of the file just in case
-        self._handle.seek(0)
-
-        # Serialize the database state using the user-provided arguments
-        serialized = json.dumps(data, **self.kwargs)
-
-        # Write the serialized data to the file
-        try:
-            self._handle.write(serialized)
-        except io.UnsupportedOperation:
-            raise IOError('Cannot write to the database. Access mode is "{0}"'.format(self._mode))
-
-        # Ensure the file has been written
-        self._handle.flush()
-        os.fsync(self._handle.fileno())
-
-        # Remove data that is behind the new cursor in case the file has
-        # gotten shorter
-        self._handle.truncate()
+        # Write JSON data with retry logic for transient I/O failures.
+        # Retries transient failures (file locks, EMFILE, ENOMEM, temporary unavailability).
+        # Immediately propagates permanent failures (permission, disk full, type errors).
+        # Uses atomic writes (seek/write/flush/fsync/truncate) ensuring idempotency.
+        max_retries = 3
+        initial_delay_ms = 100
+        max_delay_ms = 5000
+        jitter_fraction = 0.1
+        
+        for attempt in range(max_retries + 1):
+            try:
+                # Move cursor to beginning
+                self._handle.seek(0)
+                
+                # Serialize the database state
+                serialized = json.dumps(data, **self.kwargs)
+                
+                # Write the serialized data
+                self._handle.write(serialized)
+                
+                # Ensure written to disk (atomic semantics)
+                self._handle.flush()
+                os.fsync(self._handle.fileno())
+                
+                # Truncate file if it got shorter
+                self._handle.truncate()
+                return
+                
+            except io.UnsupportedOperation:
+                raise IOError('Cannot write to the database. Access mode is "{0}"'.format(self._mode))
+            except (PermissionError, TypeError) as e:
+                # Permanent failures: permission denied, type error
+                raise
+            except OSError as e:
+                # Permanent: disk full (ENOSPC)
+                if getattr(e, 'errno', None) == errno.ENOSPC:
+                    raise
+                # Transient: EMFILE, ENFILE, ENOMEM, EAGAIN, EWOULDBLOCK
+                transient_errors = {errno.EAGAIN, errno.EWOULDBLOCK, errno.EMFILE, errno.ENFILE, errno.ENOMEM}
+                is_transient = getattr(e, 'errno', None) in transient_errors or 'lock' in str(e).lower()
+                
+                if not is_transient or attempt >= max_retries:
+                    raise
+                
+                # Exponential backoff with jitter for transient failures
+                delay_ms = min(initial_delay_ms * (2 ** attempt), max_delay_ms)
+                jitter = delay_ms * jitter_fraction * (0.5 if attempt % 2 else -0.5)
+                sleep_time = (delay_ms + jitter) / 1000.0
+                time.sleep(max(0, sleep_time))
+            except IOError as e:
+                # Transient: file lock, resource contention
+                is_transient = 'lock' in str(e).lower() or getattr(e, 'errno', None) in {errno.EAGAIN, errno.EWOULDBLOCK}
+                
+                if not is_transient or attempt >= max_retries:
+                    raise
+                
+                # Exponential backoff with jitter
+                delay_ms = min(initial_delay_ms * (2 ** attempt), max_delay_ms)
+                jitter = delay_ms * jitter_fraction * (0.5 if attempt % 2 else -0.5)
+                sleep_time = (delay_ms + jitter) / 1000.0
+                time.sleep(max(0, sleep_time))
 
 
 class MemoryStorage(Storage):
