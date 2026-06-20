@@ -3,9 +3,11 @@ Contains the :class:`base class <tinydb.storages.Storage>` for storages and
 implementations.
 """
 
+import errno
 import io
 import json
 import os
+import time
 import warnings
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Union
@@ -130,21 +132,44 @@ class JSONStorage(Storage):
         self._handle.close()
 
     def read(self) -> Optional[Dict[str, Dict[str, Any]]]:
-        # Get the file size by moving the cursor to the file end and reading
-        # its location
-        self._handle.seek(0, os.SEEK_END)
-        size = self._handle.tell()
+        # Read JSON data with retry logic for transient I/O failures.
+        # Retries transient failures (file locks, EMFILE, temporary unavailability).
+        # Immediately propagates permanent failures (permission, not found, corruption).
+        max_retries = 3
+        initial_delay_ms = 100
+        max_delay_ms = 5000
+        jitter_fraction = 0.1
+        
+        for attempt in range(max_retries + 1):
+            try:
+                # Get the file size by moving the cursor to the file end
+                self._handle.seek(0, os.SEEK_END)
+                size = self._handle.tell()
 
-        if not size:
-            # File is empty, so we return ``None`` so TinyDB can properly
-            # initialize the database
-            return None
-        else:
-            # Return the cursor to the beginning of the file
-            self._handle.seek(0)
-
-            # Load the JSON contents of the file
-            return json.load(self._handle)
+                if not size:
+                    # File is empty, initialize database
+                    return None
+                
+                # Return to beginning and load JSON
+                self._handle.seek(0)
+                return json.load(self._handle)
+                
+            except (PermissionError, FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError, ValueError) as e:
+                # Permanent failures: fail immediately
+                raise
+            except (IOError, OSError) as e:
+                # Classify transient vs permanent by errno
+                transient_errors = {errno.EAGAIN, errno.EWOULDBLOCK, errno.EMFILE, errno.ENFILE}
+                is_transient = getattr(e, 'errno', None) in transient_errors or 'lock' in str(e).lower()
+                
+                if not is_transient or attempt >= max_retries:
+                    raise
+                
+                # Exponential backoff with jitter for transient failures
+                delay_ms = min(initial_delay_ms * (2 ** attempt), max_delay_ms)
+                jitter = delay_ms * jitter_fraction * (0.5 if attempt % 2 else -0.5)
+                sleep_time = (delay_ms + jitter) / 1000.0
+                time.sleep(max(0, sleep_time))
 
     def write(self, data: Dict[str, Dict[str, Any]]) -> None:  # type: ignore[override]
         # Move the cursor to the beginning of the file just in case
