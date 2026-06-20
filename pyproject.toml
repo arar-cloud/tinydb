@@ -75,3 +75,21 @@ skip_covered = false
 [tool.tinydb]
 stability_target = "99.9% uptime for file-based storage operations"
 recovery_documentation = "docs/reliability/failure_modes.md"
+stability_sla_documentation = "docs/changes/reliability_sla.md"
+
+[tool.tinydb.metrics]
+uptime_target_percent = 99.9
+error_budget_minutes_per_30days = 43.2
+rto_target_seconds = 5
+rpo_target_seconds = 0
+max_retry_attempts = 5
+initial_retry_delay_ms = 100
+max_retry_delay_ms = 5000
+jitter_fraction = 0.1
+
+[tool.tinydb.alerts]
+failure_alert_threshold = 2
+failure_rate_threshold_percent = 5.0
+failure_rate_window_seconds = 60
+emfile_ulimit_target = 4096
+enomem_recovery_enabled = true
