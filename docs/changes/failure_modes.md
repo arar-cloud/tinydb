@@ -148,8 +148,110 @@ JITTER_FRACTION = 0.1
 
 Future enhancement: Make these configurable via storage options.
 
+## Operator Runbooks
+
+### Transient Failure Response Procedures
+
+#### 1. File Lock Contention Detected
+
+**Symptoms**: `IOError: File is locked` or `PermissionError` in logs, retry attempts visible
+
+**Response Steps**:
+1. Check open file descriptors: `lsof | grep tinydb.db`
+2. Identify blocking process: Look for processes with write lock
+3. Check retry logs for backoff timing: Expected 100ms → 200ms → 400ms delays
+4. Monitor latency spike: p99 write latency should return to <200ms post-retry
+5. If contention persists >10s: Scale down concurrent writers or implement request queueing
+
+**Validation**: Verify retry count in logs matches expected exponential backoff sequence
+
+#### 2. EMFILE (Too Many Open Files)
+
+**Symptoms**: `OSError: [Errno 24] Too many open files` after repeated write attempts
+
+**Response Steps**:
+1. Check current ulimit: `ulimit -n`
+2. Check actual open files: `lsof | wc -l`
+3. Increase ulimit (Linux): `ulimit -n 4096`
+4. Identify file descriptor leaks: Check for unclosed file handles in application code
+5. Restart application if leak suspected
+
+**Validation**: Verify EMFILE errors decrease after retry backoff; open file count should stabilize
+
+#### 3. Temporary Filesystem Unavailability (NFS, Disk Busy)
+
+**Symptoms**: `OSError: [Errno 11] Resource temporarily unavailable` (EAGAIN/EWOULDBLOCK)
+
+**Response Steps**:
+1. Check filesystem mount status: `mount | grep db-path`
+2. Check disk I/O latency: `iostat -x 1` (look for %util, await)
+3. Monitor NFS mount availability: `nfsstat` (for NFS mounts)
+4. Check system load: `uptime`, `top`
+5. If NFS unavailable: Verify network path, check server availability
+
+**Validation**: Confirm retry backoff recovers database access; I/O latency should normalize
+
+### Permanent Failure Response Procedures
+
+#### 1. Permission Denied
+
+**Symptoms**: `PermissionError: [Errno 13] Permission denied` on read/write, no retry attempts
+
+**Response Steps**:
+1. Check file ownership: `ls -la data/tinydb.db`
+2. Check directory ownership: `ls -la data/`
+3. Verify application process user: `ps -u | grep app`
+4. Fix permissions: `chown app:app data/tinydb.db` and `chmod 600 data/tinydb.db`
+5. Verify ACLs: `getfacl data/tinydb.db` (if ACLs enabled)
+
+**Validation**: Retry operation manually; should succeed immediately
+
+#### 2. Disk Full (ENOSPC)
+
+**Symptoms**: `OSError: [Errno 28] No space left on device`, application halts on write
+
+**Response Steps**:
+1. Check disk usage: `df -h`
+2. Identify large files: `du -sh *` in parent directory
+3. Free disk space: Delete old backups, logs, or temporary files
+4. Target: At least 20% free space
+5. Monitor space after cleanup: `watch -n 5 'df -h'`
+
+**Validation**: Retry write operation; should succeed after disk space freed
+
+#### 3. Corrupted JSON Data
+
+**Symptoms**: `json.JSONDecodeError` on read, database cannot be loaded
+
+**Response Steps**:
+1. Backup corrupted file: `cp data/tinydb.db data/tinydb.db.corrupted`
+2. Check backup integrity: `python -c "import json; json.load(open('data/backup.db'));"`
+3. Restore from backup: `cp data/backup.db data/tinydb.db`
+4. Verify restored data: Query database and validate record count
+5. Investigate corruption cause: Check for crashes, disk errors, or concurrent writes
+
+**Validation**: Confirm database reads successfully after restore
+
+### Monitoring Checklist
+
+**Every 5 minutes** (automated alerts):
+- Check retry rate: Target <2% of operations retry once
+- Check error rate: Alert if >0.1% permanent failures
+- Track latency p99: Alert if >5 second operation latency
+
+**Every hour** (manual review):
+- Parse logs for repeated failures: Indicates systemic issue
+- Check disk space trend: Alert if <30% free
+- Verify backup freshness: Last backup <24 hours old
+
+**Every day** (operational verification):
+- Test restore procedure: Ensure backup recovery works
+- Review failure classification: Transient vs permanent ratio
+- Verify SLO tracking: Confirm uptime targets on pace
+
 ## References
 
 - Issue: `[debugging:issue-0989e16c26]`
 - Related tests: `tests/test_storages.py` (transient_failure, idempotent markers)
 - Type hints: See `tinydb/storages.py` for complete Storage interface
+- Reliability SLA: See `docs/changes/reliability_sla.md` for uptime targets and RTO/RPO guarantees
