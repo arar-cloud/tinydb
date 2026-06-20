@@ -17,26 +17,7 @@ try:
     from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 except ImportError:
     # Fallback if tenacity not available
-    def retry(*args,     # JSON serialization errors are permanent
-                try:
-                    if os.path.exists(temp_file):
-                        logger.error(f"Malformed JSON in storage file on attempt {attempt + 1}/{max_retries}")
-                        raise ValueError('Malformed JSON in storage file') from e
-            except (IOError, OSError) as exc:
-                is_transient = self._is_transient_failure(exc)
-                if not is_transient:
-                    logger.error(f"Permanent read failure: {exc}")
-                    raise ValueError(f'Storage read error: {exc}') from exc
-
-                if attempt < max_retries - 1:
-                    wait_time = backoff_base * (2 ** attempt) + (0.01 * (attempt + 1))
-                    logger.warning(f"Transient read failure (attempt {attempt + 1}/{max_retries}): {exc}. Retrying in {wait_time:.3f}s")
-                    time.sleep(wait_time)
-                else:
-                    logger.error(f"Read failed after {max_retries} attempts: {exc}")
-                    raise ValueError(f'Storage read failed after {max_retries} attempts: {exc}') from exc
-            except FileNotFoundError:
-                logger.error('Storage file not found')
+    def retry(*args, **kwargs):
         def decorator(func):
             return func
         return decorator
@@ -185,9 +166,11 @@ class JSONStorage(Storage):
         self._handle.close()
 
     def read(self) -> Optional[Dict[str, Dict[str, Any]]]:
-        # Read JSON data with retry logic for transient I/O failures.
-        # Retries transient failures (file locks, EMFILE, temporary unavailability).
-        # Immediately propagates permanent failures (permission, not found, corruption).
+        """
+        Read JSON data with retry logic for transient I/O failures.
+        Retries transient failures (file locks, EMFILE, temporary unavailability).
+        Immediately propagates permanent failures (permission, not found, corruption).
+        """
         max_retries = 3
         initial_delay_ms = 100
         max_delay_ms = 5000
@@ -209,26 +192,31 @@ class JSONStorage(Storage):
 
             except (PermissionError, FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError, ValueError) as e:
                 # Permanent failures: fail immediately
+                logger.error(f"Permanent read failure: {type(e).__name__}: {e}")
                 raise
             except (IOError, OSError) as e:
                 # Classify transient vs permanent by errno
-                transient_errors = {errno.EAGAIN, errno.EWOULDBLOCK, errno.EMFILE, errno.ENFILE}
+                transient_errors = {errno.EAGAIN, errno.EWOULDBLOCK, errno.EMFILE, errno.ENFILE, errno.ENOMEM, errno.EBUSY, errno.ETIMEDOUT}
                 is_transient = getattr(e, 'errno', None) in transient_errors or 'lock' in str(e).lower()
 
                 if not is_transient or attempt >= max_retries:
+                    logger.error(f"Read failed after {attempt + 1} attempt(s): {type(e).__name__}: {e}")
                     raise
 
                 # Exponential backoff with jitter for transient failures
                 delay_ms = min(initial_delay_ms * (2 ** attempt), max_delay_ms)
                 jitter = delay_ms * jitter_fraction * (0.5 if attempt % 2 else -0.5)
                 sleep_time = (delay_ms + jitter) / 1000.0
+                logger.warning(f"Transient read failure (attempt {attempt + 1}/{max_retries + 1}): {type(e).__name__}. Retrying in {sleep_time:.3f}s")
                 time.sleep(max(0, sleep_time))
 
     def write(self, data: Dict[str, Dict[str, Any]]) -> None:  # type: ignore[override]
-        # Write JSON data with retry logic for transient I/O failures.
-        # Retries transient failures (file locks, EMFILE, ENOMEM, temporary unavailability).
-        # Immediately propagates permanent failures (permission, disk full, type errors).
-        # Uses atomic writes (seek/write/flush/fsync/truncate) ensuring idempotency.
+        """
+        Write JSON data with retry logic for transient I/O failures.
+        Retries transient failures (file locks, EMFILE, ENOMEM, temporary unavailability).
+        Immediately propagates permanent failures (permission, disk full, type errors).
+        Uses atomic writes (seek/write/flush/fsync/truncate) ensuring idempotency.
+        """
         max_retries = 3
         initial_delay_ms = 100
         max_delay_ms = 5000
@@ -257,34 +245,40 @@ class JSONStorage(Storage):
                 raise IOError('Cannot write to the database. Access mode is "{0}"'.format(self._mode))
             except (PermissionError, TypeError) as e:
                 # Permanent failures: permission denied, type error
+                logger.error(f"Permanent write failure: {type(e).__name__}: {e}")
                 raise
             except OSError as e:
                 # Permanent: disk full (ENOSPC)
                 if getattr(e, 'errno', None) == errno.ENOSPC:
+                    logger.error(f"Permanent write failure (disk full): {e}")
                     raise
-                # Transient: EMFILE, ENFILE, ENOMEM, EAGAIN, EWOULDBLOCK
-                transient_errors = {errno.EAGAIN, errno.EWOULDBLOCK, errno.EMFILE, errno.ENFILE, errno.ENOMEM}
+                # Transient: EMFILE, ENFILE, ENOMEM, EAGAIN, EWOULDBLOCK, EBUSY, ETIMEDOUT
+                transient_errors = {errno.EAGAIN, errno.EWOULDBLOCK, errno.EMFILE, errno.ENFILE, errno.ENOMEM, errno.EBUSY, errno.ETIMEDOUT}
                 is_transient = getattr(e, 'errno', None) in transient_errors or 'lock' in str(e).lower()
 
                 if not is_transient or attempt >= max_retries:
+                    logger.error(f"Write failed after {attempt + 1} attempt(s): {type(e).__name__}: {e}")
                     raise
 
                 # Exponential backoff with jitter for transient failures
                 delay_ms = min(initial_delay_ms * (2 ** attempt), max_delay_ms)
                 jitter = delay_ms * jitter_fraction * (0.5 if attempt % 2 else -0.5)
                 sleep_time = (delay_ms + jitter) / 1000.0
+                logger.warning(f"Transient write failure (attempt {attempt + 1}/{max_retries + 1}): {type(e).__name__}. Retrying in {sleep_time:.3f}s")
                 time.sleep(max(0, sleep_time))
             except IOError as e:
                 # Transient: file lock, resource contention
                 is_transient = 'lock' in str(e).lower() or getattr(e, 'errno', None) in {errno.EAGAIN, errno.EWOULDBLOCK}
 
                 if not is_transient or attempt >= max_retries:
+                    logger.error(f"Write failed after {attempt + 1} attempt(s): {type(e).__name__}: {e}")
                     raise
 
                 # Exponential backoff with jitter
                 delay_ms = min(initial_delay_ms * (2 ** attempt), max_delay_ms)
                 jitter = delay_ms * jitter_fraction * (0.5 if attempt % 2 else -0.5)
                 sleep_time = (delay_ms + jitter) / 1000.0
+                logger.warning(f"Transient write failure (attempt {attempt + 1}/{max_retries + 1}): {type(e).__name__}. Retrying in {sleep_time:.3f}s")
                 time.sleep(max(0, sleep_time))
 
 
