@@ -81,8 +81,51 @@ For comprehensive failure classification, recovery strategies, and testing proce
 - **Filesystem dependency**: Reliability depends on underlying filesystem (ext4, NTFS, etc.); network mounts have higher latency and failure rates
 - **Hardware limits**: Operating system I/O limits (EMFILE, ENFILE) may trigger retries under high concurrency
 
+## Metrics Collection and Integration
+
+### Logging Configuration
+
+All storage layer operations must log:
+```
+[TIMESTAMP] [LEVEL] [storage.py:write] operation=write path=/data/tinydb.db attempt=1 delay_ms=0 status=success
+[TIMESTAMP] [LEVEL] [storage.py:write] operation=write path=/data/tinydb.db attempt=2 delay_ms=100 status=retry errno=24
+[TIMESTAMP] [LEVEL] [storage.py:write] operation=write path=/data/tinydb.db attempt=3 delay_ms=200 status=permanent_failure errno=28
+```
+
+### Prometheus Metrics
+
+Expose metrics for collection:
+```
+tinydb_io_operations_total{operation="read",status="success"} 15234
+tinydb_io_operations_total{operation="read",status="retry"} 42
+tinydb_io_operations_total{operation="read",status="permanent_failure"} 1
+tinydb_io_operation_duration_seconds{operation="read",quantile="0.99"} 0.087
+tinydb_io_operation_duration_seconds{operation="read",quantile="0.999"} 0.342
+tinydb_io_retries_total{failure_type="file_lock"} 12
+tinydb_io_retries_total{failure_type="emfile"} 3
+tinydb_io_retries_total{failure_type="eagain"} 27
+```
+
+### CI/CD Integration Points
+
+1. **Pre-deployment verification**:
+   - Run chaos tests with `pytest -m chaos_injection` to verify retry logic
+   - Validate 90% test coverage with `-v --cov-fail-under=90`
+   - Execute stress tests: `pytest -m stress_test --durations=10`
+
+2. **Post-deployment validation**:
+   - Collect baseline metrics from first 1 hour of production traffic
+   - Alert if retry rate >2% or permanent failure rate >0.1%
+   - Compare p99 latency to historical baseline ±10%
+
+3. **Continuous monitoring**:
+   - Export metrics every 60 seconds to time-series database
+   - Calculate rolling 30-day uptime: (total_seconds - failure_seconds) / total_seconds
+   - Alert if 30-day uptime projected to miss 99.9% SLO
+
 ## References
 
 - [Failure Modes and Recovery Procedures](./failure_modes.md): Detailed classification, testing strategy, configuration
 - Issue tracking: `[debugging:issue-b68db1c961]`
 - Design review: Atomic writes, retry strategy, idempotency
+- Configuration schema: See `pyproject.toml [tool.tinydb]` for metrics and alert thresholds
