@@ -17,8 +17,10 @@ try:
     from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 except ImportError:
     # Fallback if tenacity not available
-    def retry(*args, **kwargs):
-        logger.error(f"Malformed JSON in storage file on attempt {attempt + 1}/{max_retries}")
+    def retry(*args,     # JSON serialization errors are permanent
+                try:
+                    if os.path.exists(temp_file):
+                        logger.error(f"Malformed JSON in storage file on attempt {attempt + 1}/{max_retries}")
                         raise ValueError('Malformed JSON in storage file') from e
             except (IOError, OSError) as exc:
                 is_transient = self._is_transient_failure(exc)
