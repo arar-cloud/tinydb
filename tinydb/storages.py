@@ -95,6 +95,28 @@ class JSONStorage(Storage):
     Store the data in a JSON file.
     """
 
+    @staticmethod
+    def _is_transient_failure(exc: Exception) -> bool:
+        """
+        Classify I/O exceptions as transient (retryable) or permanent.
+        Transient: file lock contention, temporary filesystem unavailability.
+        Permanent: permission denied, file not found (after path validation).
+        """
+        if isinstance(exc, (IOError, OSError)):
+            # Transient: file lock (EAGAIN, EACCES on write retry), busy device
+            if getattr(exc, 'errno', None) in (errno.EAGAIN, errno.EBUSY, errno.ETIMEDOUT, errno.EMFILE, errno.ENFILE, errno.ENOMEM):
+                return True
+            # File lock indication in error message
+            if 'lock' in str(exc).lower():
+                return True
+        elif isinstance(exc, (json.JSONDecodeError, ValueError, UnicodeDecodeError)):
+            # Permanent: corrupted JSON or encoding errors
+            return False
+        elif isinstance(exc, (FileNotFoundError, IsADirectoryError, NotADirectoryError, PermissionError, TypeError)):
+            # Permanent: file access/type errors
+            return False
+        return False
+
     def __init__(
         self,
         path: str,
