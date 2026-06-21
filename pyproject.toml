@@ -13,6 +13,13 @@ max_backoff_ms = 5000
 jitter_fraction = 0.1
 transient_error_codes = ["EAGAIN", "EWOULDBLOCK", "EMFILE", "ENFILE", "ENOMEM", "ETIMEDOUT", "EBUSY"]
 permanent_error_codes = ["ENOSPC", "EPERM", "EACCES", "EINVAL", "EISDIR", "ENOTDIR"]
+
+[project.ci-rules]
+fail_under = 90
+timeout_seconds = 10
+required_markers = ["retry", "chaos", "concurrent"]
+test_categories = ["unit", "integration", "stability"]
+slo_validation_enabled = true
 readme = "README.rst"
 license = "MIT"
 keywords = [
