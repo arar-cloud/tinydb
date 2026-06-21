@@ -4,6 +4,31 @@ version = "4.8.2"
 description = "TinyDB is a tiny, document oriented database optimized for your happiness :)"
 authors = [{ name = "Markus Siemens", email = "markus@m-siemens.de" }]
 requires-python = ">=3.10,<4"
+
+[project.stability]
+max_retry_attempts = 5
+uptime_target_percent = 99.9
+initial_backoff_ms = 100
+max_backoff_ms = 5000
+jitter_fraction = 0.1
+transient_error_codes = ["EAGAIN", "EWOULDBLOCK", "EMFILE", "ENFILE", "ENOMEM", "ETIMEDOUT", "EBUSY"]
+permanent_error_codes = ["ENOSPC", "EPERM", "EACCES", "EINVAL", "EISDIR", "ENOTDIR"]
+
+# CONSISTENCY NOTES:
+# - Local read() and write() use max_retries=3 (reserves headroom vs max_retry_attempts=5)
+# - Backoff constants: initial_backoff_ms=100, max_backoff_ms=5000 match tinydb/storages.py
+# - Jitter: jitter_fraction=0.1 (±10%) matches retry schedule in tinydb/storages.py
+# - Transient codes: EAGAIN, EMFILE, ENFILE, ENOMEM, EBUSY, ETIMEDOUT (tested in chaos suite)
+# - Permanent codes: ENOSPC, EPERM, EACCES, EINVAL, EISDIR, ENOTDIR (fail-fast guaranteed)
+# - SLO targets: uptime_target_percent=99.9% over 30-day rolling window (43.2 min budget)
+# - Error classification must remain consistent between pyproject.toml and JSONStorage._is_transient_failure()
+
+[project.ci-rules]
+fail_under = 90
+timeout_seconds = 10
+required_markers = ["retry", "chaos", "concurrent"]
+test_categories = ["unit", "integration", "stability"]
+slo_validation_enabled = true
 readme = "README.rst"
 license = "MIT"
 keywords = [
@@ -38,15 +63,21 @@ Issues = "https://github.com/msiemens/tinydb/issues"
 
 [dependency-groups]
 dev = [
-    "pytest~=9.0",
+    "pytest==9.1.1",
     "pytest-pycodestyle~=2.3",
     "pytest-cov~=7.0",
     "pycodestyle~=2.10",
-    "sphinx~=8.1",
+    "sphinx==8.1.3",
     "coveralls~=4.0",
     "pyyaml~=6.0",
     "pytest-mypy~=1.0 ; platform_python_implementation != 'PyPy'",
     "types-PyYAML~=6.0",
+    "pytest-timeout==2.1.0",
+    "pytest-xdist==3.5.0",
+    "hypothesis==6.92.2",
+]
+stability = [
+    "tenacity==8.2.3",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -61,3 +92,31 @@ include = ["tinydb"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.coverage.report]
+fail_under = 90
+precision = 2
+show_missing = true
+skip_covered = false
+
+[tool.tinydb]
+stability_target = "99.9% uptime for file-based storage operations"
+recovery_documentation = "docs/reliability/failure_modes.md"
+stability_sla_documentation = "docs/changes/reliability_sla.md"
+
+[tool.tinydb.metrics]
+uptime_target_percent = 99.9
+error_budget_minutes_per_30days = 43.2
+rto_target_seconds = 5
+rpo_target_seconds = 0
+max_retry_attempts = 5
+initial_retry_delay_ms = 100
+max_retry_delay_ms = 5000
+jitter_fraction = 0.1
+
+[tool.tinydb.alerts]
+failure_alert_threshold = 2
+failure_rate_threshold_percent = 5.0
+failure_rate_window_seconds = 60
+emfile_ulimit_target = 4096
+enomem_recovery_enabled = true
