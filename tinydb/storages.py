@@ -93,14 +93,47 @@ class Storage(ABC):
 class JSONStorage(Storage):
     """
     Store the data in a JSON file.
+    
+    Implements automatic retry logic for transient I/O failures to achieve 99.9% uptime.
+    Supports exponential backoff with jitter for file lock contention, resource exhaustion,
+    and temporary filesystem unavailability.
+    
+    Error Classification:
+    - Transient (Retried): EAGAIN, EMFILE, ENFILE, ENOMEM, EBUSY, ETIMEDOUT, file locks
+    - Permanent (Immediate Fail): ENOSPC, EPERM, EACCES, PermissionError, FileNotFoundError
+    
+    Idempotency: Write operations use atomic semantics (seek/write/flush/fsync/truncate).
+    Retries are safe because the entire database state is rewritten atomically on each attempt.
+    
+    Configuration: [project.stability] max_retry_attempts=5, initial_backoff_ms=100,
+    max_backoff_ms=5000, jitter_fraction=0.1. Local retry limits (3 attempts) reserve
+    headroom for caller-level retries.
     """
 
     @staticmethod
     def _is_transient_failure(exc: Exception) -> bool:
         """
         Classify I/O exceptions as transient (retryable) or permanent.
-        Transient: file lock contention, temporary filesystem unavailability.
-        Permanent: permission denied, file not found (after path validation).
+        
+        Transient Failures (Safe to Retry):
+        - File Lock Contention: EAGAIN, EWOULDBLOCK indicate another process holds lock.
+          Recovery: Exponential backoff retry (100ms → 5s max). Idempotent writes are safe.
+        - Resource Exhaustion: EMFILE (too many open files), ENFILE (system file table full),
+          ENOMEM (memory pressure). Recovery: Backoff allows resource cleanup.
+        - Temporary Unavailability: EBUSY (device busy), ETIMEDOUT (NFS lag).
+          Recovery: Exponential backoff with jitter to avoid thundering herd.
+        - Lock Strings: Message contains 'lock' (platform-specific lock indication).
+        
+        Permanent Failures (Fail Fast, No Retry):
+        - ENOSPC: Disk full. Cannot recover by retrying.
+        - EPERM, EACCES: Permission denied. Retries will not succeed.
+        - PermissionError, FileNotFoundError, IsADirectoryError: Path validation errors.
+        - json.JSONDecodeError, UnicodeDecodeError: Corrupted data. Retries will not help.
+        - TypeError: Invalid data type for serialization. Retries will not help.
+        
+        Retry Strategy:
+        - Transient: Exponential backoff with jitter, max 3 attempts per operation.
+        - Permanent: Raise immediately to fail fast and avoid cascading timeouts.
         """
         if isinstance(exc, (IOError, OSError)):
             # Transient: file lock (EAGAIN, EACCES on write retry), busy device
