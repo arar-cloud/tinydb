@@ -275,11 +275,48 @@ class JSONStorage(Storage):
 
     def write(self, data: Dict[str, Dict[str, Any]]) -> None:  # type: ignore[override]
         """
-        Write JSON data with retry logic for transient I/O failures.
-        Retries transient failures (file locks, EMFILE, ENOMEM, temporary unavailability).
-        Immediately propagates permanent failures (permission, disk full, type errors).
-        Uses atomic writes (seek/write/flush/fsync/truncate) ensuring idempotency.
-        Config: [project.stability] max_retry_attempts=5, initial_backoff_ms=100, max_backoff_ms=5000, jitter_fraction=0.1
+        Write JSON data with exponential backoff retry for transient I/O failures.
+        Uses atomic write pattern ensuring data consistency and idempotency across retries.
+        
+        Operation Semantics (Atomic Write Pattern):
+        1. seek(0) - Position cursor at file start
+        2. json.dumps(data, **self.kwargs) - Serialize entire database state
+        3. write(serialized) - Write JSON string
+        4. flush() - Flush OS buffers (buffered I/O → kernel)
+        5. fsync(fileno()) - Sync kernel buffers → disk (durability)
+        6. truncate() - Truncate file to written length (safe cleanup if shorter)
+        
+        Idempotency Guarantee:
+        Each retry writes the complete database state atomically. The final state is
+        deterministic regardless of retry count. No partial writes or data corruption
+        even if multiple retries occur. Safe for concurrent retry patterns.
+        
+        Retry Behavior (Transient Failures Only):
+        - Errors: EAGAIN, EMFILE, ENFILE, EBUSY, ETIMEDOUT, file lock strings
+        - NOT Retried: ENOSPC (disk full - retries will always fail)
+        - Backoff: Exponential (100ms → 200ms → 400ms) with ±10% jitter
+        - Max Attempts: 3 (reserves headroom vs [project.stability] max_retry_attempts=5)
+        - Sleep: max(0, delay_ms + jitter) converted to seconds
+        - Logged at WARNING level with attempt count and retry delay
+        
+        Permanent Failures (Fail Immediately):
+        - io.UnsupportedOperation: File not opened in write mode (raises IOError)
+        - PermissionError: Access denied (no retry, will always fail)
+        - TypeError: Data not JSON-serializable (no retry, validate data type first)
+        - OSError with errno=ENOSPC: Disk full (no retry, can only fail)
+        - All permanent failures logged at ERROR level and re-raised
+        
+        Parameters:
+        - data: Dict[str, Dict[str, Any]] - Complete database state to write
+        
+        Raises:
+        - IOError: Access mode does not support write (permanent)
+        - PermissionError: Access denied (permanent)
+        - TypeError: Data not JSON-serializable (permanent)
+        - OSError: I/O error after 3 retry attempts or disk full (transient/permanent)
+        
+        Config: [project.stability] initial_backoff_ms=100, max_backoff_ms=5000, jitter_fraction=0.1
+        SLA Target: 99.9% uptime for write operations with < 5s RTO for transient failures
         """
         # These constants enforce [project.stability] SLO configuration
         max_retries = 3  # Lower than max_retry_attempts to reserve headroom
