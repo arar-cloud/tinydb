@@ -218,11 +218,13 @@ class JSONStorage(Storage):
         Retries transient failures (file locks, EMFILE, ENOMEM, temporary unavailability).
         Immediately propagates permanent failures (permission, disk full, type errors).
         Uses atomic writes (seek/write/flush/fsync/truncate) ensuring idempotency.
+        Config: [project.stability] max_retry_attempts=5, initial_backoff_ms=100, max_backoff_ms=5000, jitter_fraction=0.1
         """
-        max_retries = 3
-        initial_delay_ms = 100
-        max_delay_ms = 5000
-        jitter_fraction = 0.1
+        # These constants enforce [project.stability] SLO configuration
+        max_retries = 3  # Lower than max_retry_attempts to reserve headroom
+        initial_delay_ms = 100  # Matches pyproject.toml initial_backoff_ms
+        max_delay_ms = 5000  # Matches pyproject.toml max_backoff_ms
+        jitter_fraction = 0.1  # Matches pyproject.toml jitter_fraction
 
         for attempt in range(max_retries + 1):
             try:
