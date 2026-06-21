@@ -14,6 +14,15 @@ jitter_fraction = 0.1
 transient_error_codes = ["EAGAIN", "EWOULDBLOCK", "EMFILE", "ENFILE", "ENOMEM", "ETIMEDOUT", "EBUSY"]
 permanent_error_codes = ["ENOSPC", "EPERM", "EACCES", "EINVAL", "EISDIR", "ENOTDIR"]
 
+# CONSISTENCY NOTES:
+# - Local read() and write() use max_retries=3 (reserves headroom vs max_retry_attempts=5)
+# - Backoff constants: initial_backoff_ms=100, max_backoff_ms=5000 match tinydb/storages.py
+# - Jitter: jitter_fraction=0.1 (±10%) matches retry schedule in tinydb/storages.py
+# - Transient codes: EAGAIN, EMFILE, ENFILE, ENOMEM, EBUSY, ETIMEDOUT (tested in chaos suite)
+# - Permanent codes: ENOSPC, EPERM, EACCES, EINVAL, EISDIR, ENOTDIR (fail-fast guaranteed)
+# - SLO targets: uptime_target_percent=99.9% over 30-day rolling window (43.2 min budget)
+# - Error classification must remain consistent between pyproject.toml and JSONStorage._is_transient_failure()
+
 [project.ci-rules]
 fail_under = 90
 timeout_seconds = 10
