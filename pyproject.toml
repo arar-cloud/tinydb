@@ -66,6 +66,8 @@ dev = [
     "pytest-timeout==2.1.0",
     "pytest-xdist==3.5.0",
     "hypothesis==6.92.2",
+]
+stability = [
     "tenacity==8.2.3",
 ]
 
