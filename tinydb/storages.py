@@ -200,10 +200,38 @@ class JSONStorage(Storage):
 
     def read(self) -> Optional[Dict[str, Dict[str, Any]]]:
         """
-        Read JSON data with retry logic for transient I/O failures.
-        Retries transient failures (file locks, EMFILE, temporary unavailability).
-        Immediately propagates permanent failures (permission, not found, corruption).
-        Config: [project.stability] max_retry_attempts=5, initial_backoff_ms=100, max_backoff_ms=5000, jitter_fraction=0.1
+        Read JSON data with exponential backoff retry for transient I/O failures.
+        
+        Operation Semantics:
+        - Reads file sequentially: seek(0, SEEK_END) → tell() → seek(0) → json.load()
+        - Returns None if file is empty (uninitialized database state)
+        - Returns deserialized dict on success
+        
+        Retry Behavior (Transient Failures Only):
+        - Errors: EAGAIN, EMFILE, ENFILE, EBUSY, ETIMEDOUT, file lock strings
+        - Backoff: Exponential (100ms → 200ms → 400ms) with ±10% jitter
+        - Max Attempts: 3 (reserves headroom vs [project.stability] max_retry_attempts=5)
+        - Sleep: max(0, delay_ms + jitter) converted to seconds
+        - Logged at WARNING level with attempt count and retry delay
+        
+        Permanent Failures (Fail Immediately):
+        - PermissionError: No retry (will always fail)
+        - FileNotFoundError: No retry (file does not exist or path invalid)
+        - json.JSONDecodeError, UnicodeDecodeError, ValueError: Data corruption (no retry)
+        - OSError with errno=ENOSPC: Disk full (no retry)
+        - All permanent failures logged at ERROR level and re-raised
+        
+        Returns:
+        - None: File is empty (valid for uninitialized database)
+        - Dict[str, Dict[str, Any]]: Deserialized database state
+        
+        Raises:
+        - PermissionError: Access denied (permanent)
+        - FileNotFoundError: File does not exist (permanent)
+        - json.JSONDecodeError: Corrupted JSON (permanent)
+        - OSError: I/O error after 3 retry attempts (transient)
+        
+        Config: [project.stability] initial_backoff_ms=100, max_backoff_ms=5000, jitter_fraction=0.1
         """
         # These constants enforce [project.stability] SLO configuration
         max_retries = 3  # Lower than max_retry_attempts to reserve headroom
