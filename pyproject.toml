@@ -6,6 +6,10 @@ authors = [{ name = "Markus Siemens", email = "markus@m-siemens.de" }]
 requires-python = ">=3.10,<4"
 readme = "README.rst"
 license = "MIT"
+dependencies = [
+    "tenacity>=8.2.0",
+    "backoff>=2.2.0",
+]
 keywords = [
     "database",
     "nosql",
@@ -23,6 +27,10 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Topic :: Internet",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
