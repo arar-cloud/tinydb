@@ -30,6 +30,10 @@ classifiers = [
     "Typing :: Typed",
 ]
 
+dependencies = [
+    "tenacity>=8.2.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/msiemens/tinydb"
 Documentation = "https://tinydb.readthedocs.org/"
