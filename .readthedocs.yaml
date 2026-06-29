@@ -1,3 +1,6 @@
+# ReadTheDocs Build Configuration
+# Security hardening: All dependencies pinned to specific versions for reproducible builds
+# Before updating versions: run security audit on new dependency versions
 version: 2
 
 build:
