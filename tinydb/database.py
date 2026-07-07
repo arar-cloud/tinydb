@@ -272,7 +272,24 @@ class TinyDB(TableBase):
     def __getattr__(self, name):
         """
         Forward all unknown attribute calls to the default table instance.
+
+        **Security Note:** Prevents access to private/internal attributes and
+        operations on closed databases to prevent undefined behavior.
+        
+        :raises RuntimeError: If database is closed.
+        :raises AttributeError: If attempting to access private attributes.
         """
+        # Block operations on closed database to prevent undefined behavior
+        if not self._opened:
+            raise RuntimeError(
+                "Cannot perform operations on a closed database. "
+                "Use a context manager or reopen the database."
+            )
+        # Block access to private/internal attributes
+        if name.startswith('_'):
+            raise AttributeError(
+                f"Private attribute '{name}' is not accessible through attribute forwarding."
+            )
         return getattr(self.table(self.default_table_name), name)
 
     # Here we forward magic methods to the default table instance. These are
