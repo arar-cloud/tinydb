@@ -91,6 +91,13 @@ class TinyDB(TableBase):
 
         storage = kwargs.pop('storage', self.default_storage_class)
 
+        # Validate storage parameter is a Storage subclass to prevent injection attacks
+        if not isinstance(storage, type) or not issubclass(storage, Storage):
+            raise TypeError(
+                f"Storage must be a Storage subclass, "
+                f"got {storage!r} instead"
+            )
+
         # Prepare the storage
         self._storage: Storage = storage(*args, **kwargs)
 
