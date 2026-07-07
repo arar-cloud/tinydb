@@ -91,10 +91,18 @@ class TinyDB(TableBase):
 
         storage = kwargs.pop('storage', self.default_storage_class)
 
+        # Validate storage parameter is a Storage subclass to prevent injection attacks
+        if not isinstance(storage, type) or not issubclass(storage, Storage):
+            raise TypeError(
+                f"Storage must be a Storage subclass, "
+                f"got {storage!r} instead"
+            )
+
         # Prepare the storage
         self._storage: Storage = storage(*args, **kwargs)
 
         self._opened = True
+        self._closed = False
         self._tables: Dict[str, Table] = {}
 
     def __repr__(self):
@@ -120,9 +128,23 @@ class TinyDB(TableBase):
         by default is :class:`~tinydb.table.Table`. Check its documentation
         for further parameters you can pass.
 
+        **Security Note:** Table names are validated to prevent path traversal
+        and injection attacks. Only alphanumeric characters, underscores, and
+        hyphens are allowed.
+
         :param name: The name of the table.
         :param kwargs: Keyword arguments to pass to the table class constructor
+        :raises ValueError: If table name contains invalid characters.
         """
+        # Validate table name to prevent path traversal and injection attacks
+        if not isinstance(name, str) or not name:
+            raise ValueError("Table name must be a non-empty string")
+        # Allow only alphanumeric, underscore, and hyphen characters
+        if not all(c.isalnum() or c in ('_', '-') for c in name):
+            raise ValueError(
+                f"Invalid table name '{name}'. Only alphanumeric characters, "
+                "underscores, and hyphens are allowed."
+            )
 
         if name in self._tables:
             return self._tables[name]
@@ -227,6 +249,7 @@ class TinyDB(TableBase):
         Upon leaving this context, the ``close`` method will be called.
         """
         self._opened = False
+        self._closed = True
         self.storage.close()
 
     def __enter__(self):
@@ -251,7 +274,24 @@ class TinyDB(TableBase):
     def __getattr__(self, name):
         """
         Forward all unknown attribute calls to the default table instance.
+
+        **Security Note:** Prevents access to private/internal attributes and
+        operations on closed databases to prevent undefined behavior.
+        
+        :raises RuntimeError: If database is closed.
+        :raises AttributeError: If attempting to access private attributes.
         """
+        # Block operations on closed database to prevent undefined behavior
+        if not self._opened:
+            raise RuntimeError(
+                "Cannot perform operations on a closed database. "
+                "Use a context manager or reopen the database."
+            )
+        # Block access to private/internal attributes
+        if name.startswith('_'):
+            raise AttributeError(
+                f"Private attribute '{name}' is not accessible through attribute forwarding."
+            )
         return getattr(self.table(self.default_table_name), name)
 
     # Here we forward magic methods to the default table instance. These are

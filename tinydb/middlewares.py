@@ -60,7 +60,14 @@ class Middleware:
         so on.
         """
 
-        self.storage = self._storage_cls(*args, **kwargs)
+        try:
+            self.storage = self._storage_cls(*args, **kwargs)
+        except Exception as e:
+            # Re-raise with context to aid debugging of configuration issues
+            raise RuntimeError(
+                f"Failed to initialize storage {self._storage_cls.__name__}: "
+                f"{str(e)}"
+            ) from e
 
         return self
 
@@ -68,9 +75,31 @@ class Middleware:
         """
         Forward all unknown attribute calls to the underlying storage, so we
         remain as transparent as possible.
-        """
 
-        return getattr(self.__dict__['storage'], name)
+        **Security Note:** Private attributes and internal methods are blocked
+        to prevent exposure of unintended internal methods or storage
+        implementation details.
+        """
+        # Block access to private/internal attributes for security
+        if name.startswith('_'):
+            raise AttributeError(
+                f"Private attribute '{name}' is not accessible through "
+                "attribute forwarding for security reasons."
+            )
+        # Block access to sensitive storage methods
+        blocked_methods = {'__init__', '__del__', '__setstate__', '__getstate__'}
+        if name in blocked_methods:
+            raise AttributeError(
+                f"Method '{name}' cannot be accessed through middleware "
+                "for security reasons."
+            )
+        storage = self.__dict__['storage']
+        if storage is None:
+            raise RuntimeError(
+                "Storage is not initialized. Ensure the middleware is properly "
+                "instantiated before accessing attributes."
+            )
+        return getattr(storage, name)
 
 
 class CachingMiddleware(Middleware):
@@ -80,6 +109,13 @@ class CachingMiddleware(Middleware):
     This Middleware aims to improve the performance of TinyDB by writing only
     the last DB state every :attr:`WRITE_CACHE_SIZE` time and reading always
     from cache.
+
+    **Security Warning:** Cache data is stored in plaintext in memory.
+    For sensitive data:
+    - Use only with trusted execution environments
+    - Be aware that memory dumps or swap files may expose cached data
+    - Consider implementing encrypted cache storage for production systems
+    - Never use with sensitive data without additional encryption layer
     """
 
     #: The number of write operations to cache before writing to disc
