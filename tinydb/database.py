@@ -249,6 +249,7 @@ class TinyDB(TableBase):
         Upon leaving this context, the ``close`` method will be called.
         """
         self._opened = False
+        self._closed = True
         self.storage.close()
 
     def __enter__(self):
