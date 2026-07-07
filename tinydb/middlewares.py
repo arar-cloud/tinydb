@@ -68,9 +68,31 @@ class Middleware:
         """
         Forward all unknown attribute calls to the underlying storage, so we
         remain as transparent as possible.
-        """
 
-        return getattr(self.__dict__['storage'], name)
+        **Security Note:** Private attributes and internal methods are blocked
+        to prevent exposure of unintended internal methods or storage
+        implementation details.
+        """
+        # Block access to private/internal attributes for security
+        if name.startswith('_'):
+            raise AttributeError(
+                f"Private attribute '{name}' is not accessible through "
+                "attribute forwarding for security reasons."
+            )
+        # Block access to sensitive storage methods
+        blocked_methods = {'__init__', '__del__', '__setstate__', '__getstate__'}
+        if name in blocked_methods:
+            raise AttributeError(
+                f"Method '{name}' cannot be accessed through middleware "
+                "for security reasons."
+            )
+        storage = self.__dict__['storage']
+        if storage is None:
+            raise RuntimeError(
+                "Storage is not initialized. Ensure the middleware is properly "
+                "instantiated before accessing attributes."
+            )
+        return getattr(storage, name)
 
 
 class CachingMiddleware(Middleware):
