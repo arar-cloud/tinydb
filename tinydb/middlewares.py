@@ -109,6 +109,13 @@ class CachingMiddleware(Middleware):
     This Middleware aims to improve the performance of TinyDB by writing only
     the last DB state every :attr:`WRITE_CACHE_SIZE` time and reading always
     from cache.
+
+    **Security Warning:** Cache data is stored in plaintext in memory.
+    For sensitive data:
+    - Use only with trusted execution environments
+    - Be aware that memory dumps or swap files may expose cached data
+    - Consider implementing encrypted cache storage for production systems
+    - Never use with sensitive data without additional encryption layer
     """
 
     #: The number of write operations to cache before writing to disc
