@@ -60,7 +60,14 @@ class Middleware:
         so on.
         """
 
-        self.storage = self._storage_cls(*args, **kwargs)
+        try:
+            self.storage = self._storage_cls(*args, **kwargs)
+        except Exception as e:
+            # Re-raise with context to aid debugging of configuration issues
+            raise RuntimeError(
+                f"Failed to initialize storage {self._storage_cls.__name__}: "
+                f"{str(e)}"
+            ) from e
 
         return self
 
