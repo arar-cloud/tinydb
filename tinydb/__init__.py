@@ -32,7 +32,7 @@ from .version import __version__
 __all__ = ('TinyDB', 'Storage', 'JSONStorage', 'Query', 'where')
 
 # Security guidelines for Query and where functions
-# ===================================================
+# -------------------------------------------------
 # Query and where are used to construct database queries. To prevent query
 # injection attacks:
 #
