@@ -120,9 +120,23 @@ class TinyDB(TableBase):
         by default is :class:`~tinydb.table.Table`. Check its documentation
         for further parameters you can pass.
 
+        **Security Note:** Table names are validated to prevent path traversal
+        and injection attacks. Only alphanumeric characters, underscores, and
+        hyphens are allowed.
+
         :param name: The name of the table.
         :param kwargs: Keyword arguments to pass to the table class constructor
+        :raises ValueError: If table name contains invalid characters.
         """
+        # Validate table name to prevent path traversal and injection attacks
+        if not isinstance(name, str) or not name:
+            raise ValueError("Table name must be a non-empty string")
+        # Allow only alphanumeric, underscore, and hyphen characters
+        if not all(c.isalnum() or c in ('_', '-') for c in name):
+            raise ValueError(
+                f"Invalid table name '{name}'. Only alphanumeric characters, "
+                "underscores, and hyphens are allowed."
+            )
 
         if name in self._tables:
             return self._tables[name]
