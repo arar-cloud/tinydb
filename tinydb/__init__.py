@@ -30,3 +30,22 @@ from .database import TinyDB
 from .version import __version__
 
 __all__ = ('TinyDB', 'Storage', 'JSONStorage', 'Query', 'where')
+
+# Security guidelines for Query and where functions
+# ===================================================
+# Query and where are used to construct database queries. To prevent query
+# injection attacks:
+#
+# 1. Never construct queries from untrusted user input
+# 2. Always use parameterized queries or whitelisted field/operator combinations
+# 3. Validate field names against an allowed list
+# 4. Use Query objects only with known, safe field names
+#
+# UNSAFE example:
+#   field_name = user_input  # Never do this!
+#   db.search(Query()[field_name] == value)
+#
+# SAFE example:
+#   ALLOWED_FIELDS = {'name', 'email', 'age'}
+#   if field_name in ALLOWED_FIELDS:
+#       db.search(Query()[field_name] == value)
