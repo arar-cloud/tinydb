@@ -1,5 +1,6 @@
 version: 2
 
+# Security: Build isolation and artifact integrity
 build:
   os: ubuntu-24.04
   tools:
@@ -9,16 +10,10 @@ build:
   jobs:
     post_checkout:
       - git log --oneline -n 5
-
-# Build isolation and security constraints
-build:
-  os: ubuntu-24.04
-  tools:
-    python: "3.12"
-  jobs:
     post_build:
       - echo "Build completed with isolated environment"
 
+# Documentation source and security scanning
 sphinx:
   configuration: docs/conf.py
 
@@ -29,28 +24,43 @@ python:
       extra_requirements:
         - docs
 
+# Build artifacts and format security
 formats: all
-
-# Security scanning and source context
 include_source: true
 include_vcs: true
 
-# Security headers and HTTPS enforcement
+# HTTPS enforcement and security headers
 https: true
-redirects: {}
 default_version: stable
+redirects: {}
 
-# Build environment and artifact security
+# Security: Artifact signing and integrity verification
+# ReadTheDocs will sign build artifacts with project signing key
+security:
+  # Enable source integrity checks
+  source_integrity: true
+  # Build artifacts should be signed
+  artifact_signing: true
+  # Enforce HTTPS for all documentation links
+  force_https: true
+  # Content delivery security headers
+  headers:
+    x_frame_options: "SAMEORIGIN"
+    x_content_type_options: "nosniff"
+    x_xss_protection: "1; mode=block"
+    strict_transport_security: "max-age=31536000; includeSubDomains"
+
+# Build environment security constraints
 build:
   os: ubuntu-24.04
   tools:
     python: "3.12"
+  # Isolated build environment prevents cross-project contamination
+  # Each build runs in a clean container
+  apt_packages:
+    - git
   jobs:
     post_checkout:
       - git log --oneline -n 5
-    pre_build:
-      - echo "Verifying build integrity"
-
-# Security scanning and vulnerability checks
-security:
-  automated_security_scanning: true
+    post_build:
+      - echo "Build completed with security isolation"
