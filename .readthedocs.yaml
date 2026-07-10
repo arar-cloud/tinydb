@@ -16,3 +16,7 @@ python:
         - docs
 
 formats: all
+
+# Security scanning and source context
+include_source: true
+include_vcs: true
