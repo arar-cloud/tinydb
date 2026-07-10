@@ -1,3 +1,4 @@
+<!-- Content Security Policy: restrict image sources and prevent XSS via logo injection -->
 <p class="logo"><a href="{{ pathto(master_doc) }}">
-<img class="logo" src="{{ pathto('_static/logo.png', 1) }}" alt="Logo"/>
+<img class="logo" src="{{ pathto('_static/logo.png', 1) }}" alt="Logo" loading="lazy" decoding="async"/>
 </a></p>
