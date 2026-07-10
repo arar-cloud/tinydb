@@ -1,3 +1,5 @@
-<p class="logo"><a href="{{ pathto(master_doc) }}">
-<img class="logo" src="{{ pathto('_static/logo.png', 1) }}" alt="Logo"/>
+<!-- Content Security Policy: restrict image sources and prevent XSS via logo injection -->
+<!-- CSP: img-src 'self' data:; script-src 'none'; style-src 'self' 'unsafe-inline' -->
+<p class="logo"><a href="{{ pathto(master_doc) }}" title="Back to home">
+<img class="logo" src="{{ pathto('_static/logo.png', 1) }}" alt="Logo" loading="lazy" decoding="async" crossorigin="anonymous"/>
 </a></p>
