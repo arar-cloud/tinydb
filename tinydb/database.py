@@ -2,6 +2,7 @@
 This module contains the main component of TinyDB: the database.
 """
 
+import threading
 from typing import Dict, Iterator, Set, Type
 
 from . import JSONStorage
@@ -90,12 +91,35 @@ class TinyDB(TableBase):
         """
 
         storage = kwargs.pop('storage', self.default_storage_class)
-
-        # Prepare the storage
-        self._storage: Storage = storage(*args, **kwargs)
-
-        self._opened = True
+        self._storage: Storage = None
+        self._init_lock = threading.Lock()
+        self._connection_lock = threading.RLock()
         self._tables: Dict[str, Table] = {}
+        self._opened = False
+
+        try:
+            # Prepare the storage
+            self._storage = storage(*args, **kwargs)
+            self._opened = True
+        except Exception as e:
+            self._storage = None
+            self._opened = False
+            raise RuntimeError(f"Failed to initialize database storage: {e}") from e
+
+    def open(self) -> None:
+        """
+        Open the database storage.
+        """
+        with self._connection_lock:
+            if self.storage.opened:
+                return
+            try:
+                self.storage.open()
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to open database: {e}", exc_info=True)
+                raise
 
     def __repr__(self):
 
@@ -226,8 +250,15 @@ class TinyDB(TableBase):
 
         Upon leaving this context, the ``close`` method will be called.
         """
-        self._opened = False
-        self.storage.close()
+        with self._connection_lock:
+            try:
+                if self._storage and hasattr(self._storage, 'close'):
+                    self._storage.close()
+            except Exception as e:
+                raise RuntimeError(f"Failed to close storage: {e}") from e
+            finally:
+                self._opened = False
+                self._tables.clear()
 
     def __enter__(self):
         """
@@ -245,8 +276,7 @@ class TinyDB(TableBase):
         """
         Close the storage instance when leaving a context.
         """
-        if self._opened:
-            self.close()
+        self.close()
 
     def __getattr__(self, name):
         """

@@ -223,13 +223,16 @@ class Query(QueryInstance):
 
         def runner(value):
             try:
+                # Validate input is a Mapping
+                if not isinstance(value, Mapping):
+                    return False
                 # Resolve the path
                 for part in self._path:
                     if isinstance(part, str):
                         value = value[part]
                     else:
                         value = part(value)
-            except (KeyError, TypeError):
+            except (KeyError, TypeError, AttributeError, ValueError):
                 return False
             else:
                 # Perform the specified test

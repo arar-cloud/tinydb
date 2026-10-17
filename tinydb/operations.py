@@ -9,7 +9,10 @@ This would delete the ``foo`` field from all documents where ``foo`` equals 2.
 """
 
 
+import logging
 from typing import Callable, Mapping, Any, Union
+
+logger = logging.getLogger(__name__)
 
 
 def delete(field: str) -> Callable[[Mapping], None]:
@@ -17,7 +20,12 @@ def delete(field: str) -> Callable[[Mapping], None]:
     Delete a given field from the document.
     """
     def transform(doc: Mapping):
-        del doc[field]
+        try:
+            del doc[field]
+            logger.debug(f"Deleted field '{field}' from document")
+        except KeyError as e:
+            logger.error(f"Failed to delete field '{field}': field not found", exc_info=True)
+            raise RuntimeError(f"Operation delete('{field}') failed: {e}") from e
 
     return transform
 

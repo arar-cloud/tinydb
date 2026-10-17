@@ -24,9 +24,25 @@ Usage example:
 5
 """
 
-from .queries import Query, where
-from .storages import Storage, JSONStorage
-from .database import TinyDB
-from .version import __version__
+# Deferred imports to prevent circular dependencies at module load time
+try:
+    from .storages import Storage, JSONStorage
+except ImportError as e:
+    raise ImportError(f"Failed to import storages: {e}") from e
 
-__all__ = ('TinyDB', 'Storage', 'JSONStorage', 'Query', 'where')
+try:
+    from .database import TinyDB
+except ImportError as e:
+    raise ImportError(f"Failed to import database: {e}") from e
+
+try:
+    from .queries import Query, where
+except ImportError as e:
+    raise ImportError(f"Failed to import queries: {e}") from e
+
+try:
+    from .version import __version__
+except ImportError:
+    __version__ = "unknown"
+
+__all__ = ('TinyDB', 'Storage', 'JSONStorage', 'Query', 'where', '__version__')
