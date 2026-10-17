@@ -155,6 +155,16 @@ html_sidebars = {
            'searchbox.html']
 }
 
+# Stability and debugging documentation configuration
+stability_docs_enabled = True
+debugging_guides_enabled = True
+known_issues_section = 'Known Issues and Debugging'
+stability_marker_categories = {
+    'mobile': 'Mobile client integration issues',
+    'backend': 'Backend and async operation issues',
+    'integration': 'Mobile-backend synchronization issues',
+}
+
 # Additional templates that should be rendered to pages, maps page names to
 # template names.
 # html_additional_pages = {}
@@ -266,7 +276,10 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 # texinfo_no_detailmenu = False
 
-extlinks = {'issue': ('https://https://github.com/msiemens/tinydb/issues/%s',
+# Documentation for debugging and stability
+master_doc = 'index'
+
+extlinks = {'issue': ('https://github.com/msiemens/tinydb/issues/%s',
                       'issue ')}
 
 sys.path.append(os.path.abspath('_themes'))
