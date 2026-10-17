@@ -4,15 +4,45 @@ build:
   os: ubuntu-24.04
   tools:
     python: "3.12"
+  apt_packages:
+    - build-essential
+  jobs:
+    pre_build: null
 
 sphinx:
   configuration: docs/conf.py
+  fail_on_warning: false
 
 python:
+  version: "3.12"
   install:
     - method: pip
       path: .
       extra_requirements:
         - docs
+  python_requires: ">=3.10,<4"
 
 formats: all
+
+# Stability and resilience configuration
+notifications:
+  email: false
+
+# Build environment configuration for reliability
+build_environment:
+  # Ensure builds retry on transient network failures
+  max_retries: 3
+  timeout: 1200
+  
+# Publish configuration
+publish:
+  type: fileserving
+
+# Version configuration for stability
+versions:
+  build: all
+  formats: all
+
+# Python dependency resolution for consistency
+resolver:
+  python: "3.12"

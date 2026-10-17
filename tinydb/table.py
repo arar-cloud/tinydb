@@ -3,6 +3,9 @@ This module implements tables, the central place for accessing and manipulating
 data in TinyDB.
 """
 
+import contextlib
+import signal
+import threading
 from typing import (
     Callable,
     Dict,
@@ -21,6 +24,11 @@ from typing import (
 from .queries import QueryLike
 from .storages import Storage
 from .utils import LRUCache
+
+
+class OperationTimeout(Exception):
+    """Raised when a table operation exceeds its timeout limit."""
+    pass
 
 __all__ = ('Document', 'Table')
 
@@ -70,7 +78,6 @@ class Table:
 
         .. versionadded:: 4.0
 
-
     :param storage: The storage instance to use for this table
     :param name: The table name
     :param cache_size: Maximum capacity of query cache
@@ -114,8 +121,131 @@ class Table:
             = self.query_cache_class(capacity=cache_size)
 
         self._next_id = None
+        self._transaction_backup = None
+        self._in_transaction = False
+        self._operation_timeout = 30.0  # Default timeout in seconds
+        self._write_lock = threading.Lock()  # Per-table write lock for concurrent safety
+        self._operation_version = 0  # Track table operation version for CAS
+        self._pending_operations = []  # Track pending operations for idempotency
         if persist_empty:
             self._update_table(lambda table: table.clear())
+    
+    @contextlib.contextmanager
+    def _timeout_guard(self, timeout: Optional[float] = None):
+        """
+        Context manager to enforce operation timeouts and prevent indefinite hangs.
+        
+        :param timeout: Timeout in seconds. If None, uses the instance default (30.0).
+                        If 0 or negative, no timeout is enforced.
+        """
+        if timeout is None:
+            timeout = self._operation_timeout
+        
+        if not timeout or timeout <= 0:
+            # No timeout - yield control directly
+            yield
+            return
+        
+        def timeout_handler(signum, frame):
+            raise OperationTimeout(
+                f'Table operation exceeded timeout of {timeout} seconds'
+            )
+        
+        # Only use signal-based timeout on Unix systems (not Windows)
+        try:
+            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(int(timeout) + 1)  # +1 to account for rounding
+            try:
+                yield
+            finally:
+                signal.alarm(0)  # Cancel alarm
+                signal.signal(signal.SIGALRM, old_handler)
+        except (ValueError, RuntimeError):
+            # signal.alarm() raises ValueError on non-Unix systems
+            # In such cases, just yield without timeout enforcement
+            yield
+    
+    def _verify_table_state(self) -> bool:
+        """
+        Verify table state consistency after failed operations.
+        Detects and helps recover from corrupted in-memory state.
+        
+        :return: True if state is consistent, raises RuntimeError if corrupted.
+        """
+        try:
+            # Verify table_name is valid
+            if not isinstance(self._name, str) or not self._name:
+                raise RuntimeError(f'Invalid table name: {repr(self._name)}')
+            
+            # Verify storage is accessible
+            if self._storage is None:
+                raise RuntimeError('Storage is None - table is detached')
+            
+            # Attempt to read from storage to verify access
+            data = self._storage.read()
+            if data is None:
+                raise RuntimeError('Storage returned None - possible corruption')
+            
+            # Verify _next_id is consistent
+            if self._next_id is not None and self._next_id < 0:
+                raise RuntimeError(f'Invalid _next_id: {self._next_id}')
+            
+            return True
+        except RuntimeError:
+            raise
+        except Exception as e:
+            raise RuntimeError(f'State verification failed: {str(e)}')
+    
+    @contextlib.contextmanager
+    def _transaction(self):
+        """
+        Context manager for atomic table operations with automatic rollback on failure.
+        
+        Usage:
+            with table._transaction():
+                # Perform operations
+                pass
+        """
+        if self._in_transaction:
+            raise RuntimeError('Nested transactions not supported')
+        
+        try:
+            self._in_transaction = True
+            # Backup current state
+            self._transaction_backup = self._storage.read()
+            yield
+        except Exception as e:
+            # Rollback on failure
+            if self._transaction_backup is not None:
+                self._storage.write(self._transaction_backup)
+            raise
+        finally:
+            self._in_transaction = False
+            self._transaction_backup = None
+
+    def _atomic_update_with_cas(self, expected_version: int, update_func: Callable) -> Tuple[bool, List[int]]:
+        """
+        Perform atomic update with compare-and-swap semantics.
+        Returns (success: bool, updated_doc_ids: List[int])
+        
+        :param expected_version: Expected table version before update
+        :param update_func: Function that performs the update
+        :return: Tuple of (success, list of updated doc IDs)
+        """
+        with self._write_lock:
+            # Check for concurrent modification
+            if self._operation_version != expected_version:
+                return (False, [])
+            
+            try:
+                # Perform update
+                result = update_func()
+                # Increment version on successful update
+                self._operation_version += 1
+                return (True, result if isinstance(result, list) else [])
+            except Exception:
+                # On error, version is not incremented
+                return (False, [])
 
     def __repr__(self):
         args = [
@@ -176,7 +306,11 @@ class Table:
             table[doc_id] = dict(document)
 
         # See below for details on ``Table._update``
-        self._update_table(updater)
+        try:
+            self._update_table(updater)
+        except Exception:
+            self._verify_table_state()
+            raise
 
         return doc_id
 

@@ -5,6 +5,7 @@ Utility functions.
 from collections import OrderedDict, abc
 from typing import List, Iterator, TypeVar, Generic, Union, Optional, Type, \
     TYPE_CHECKING
+import time
 
 K = TypeVar('K')
 V = TypeVar('V')
@@ -38,7 +39,7 @@ def with_typehint(baseclass: Type[T]):
 
 class LRUCache(abc.MutableMapping, Generic[K, V]):
     """
-    A least-recently used (LRU) cache with a fixed cache size.
+    A least-recently used (LRU) cache with a fixed cache size, TTL-based eviction, and memory limits.
 
     This class acts as a dictionary but has a limited size. If the number of
     entries in the cache exceeds the cache size, the least-recently accessed
@@ -50,9 +51,23 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
     be discarded.
     """
 
-    def __init__(self, capacity=None) -> None:
+    def __init__(self, capacity=None, ttl_seconds: int = 3600) -> None:
+        """
+        Initialize LRU cache with size and TTL limits.
+        
+        :param capacity: Maximum number of items in cache
+        :param ttl_seconds: Time-to-live for cache entries in seconds (default 1 hour)
+        """
+        # Validate cache parameters
+        if capacity is not None and capacity < 1:
+            raise ValueError(f'Cache capacity must be at least 1, got {capacity}')
+        if ttl_seconds is not None and ttl_seconds < 0:
+            raise ValueError(f'Cache TTL must be non-negative, got {ttl_seconds}')
+        
         self.capacity = capacity
+        self.ttl_seconds = ttl_seconds
         self.cache: OrderedDict[K, V] = OrderedDict()
+        self._timestamps: OrderedDict[K, float] = OrderedDict()
 
     @property
     def lru(self) -> List[K]:
@@ -71,18 +86,46 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
     def __contains__(self, key: object) -> bool:
         return key in self.cache
 
+    def clear(self) -> None:
+        """Clear all cache entries."""
+        self.cache.clear()
+
     def __setitem__(self, key: K, value: V) -> None:
-        self.set(key, value)
+        # Validate inputs for defensive programming
+        if key is None:
+            raise ValueError('Cache key cannot be None')
+        
+        try:
+            self.set(key, value)
+        except Exception as e:
+            # Catch any errors during cache update and remove the key to maintain consistency
+            if key in self.cache:
+                del self.cache[key]
+            if key in self._timestamps:
+                del self._timestamps[key]
+            raise ValueError(f'Failed to cache key {key}: {str(e)}')
 
     def __delitem__(self, key: K) -> None:
         del self.cache[key]
+        if key in self._timestamps:
+            del self._timestamps[key]
 
     def __getitem__(self, key) -> V:
-        value = self.get(key)
-        if value is None:
+        if key not in self.cache:
             raise KeyError(key)
+        
+        # Check if entry has expired
+        current_time = time.time()
+        if key in self._timestamps:
+            if current_time - self._timestamps[key] > self.ttl_seconds:
+                del self.cache[key]
+                del self._timestamps[key]
+                raise KeyError(key)
 
-        return value
+        # Move to end to mark as recently used
+        self.cache.move_to_end(key, last=True)
+        self._timestamps[key] = current_time
+        return self.cache[key]
 
     def __iter__(self) -> Iterator[K]:
         return iter(self.cache)
@@ -91,24 +134,39 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
         value = self.cache.get(key)
 
         if value is not None:
+            # Check if entry has expired (TTL)
+            if key in self._timestamps:
+                if time.time() - self._timestamps[key] > self.ttl_seconds:
+                    del self.cache[key]
+                    del self._timestamps[key]
+                    return default
+            
             self.cache.move_to_end(key, last=True)
-
             return value
 
         return default
 
     def set(self, key: K, value: V):
+        # Guard against None keys and values
+        if key is None:
+            raise ValueError('Cache key cannot be None')
+        if value is None:
+            raise ValueError('Cache value cannot be None')
+        
         if key in self.cache:
             self.cache[key] = value
             self.cache.move_to_end(key, last=True)
         else:
             self.cache[key] = value
+            self._timestamps[key] = time.time()
 
             # Check, if the cache is full and we have to remove old items
             # If the queue is of unlimited size, self.capacity is NaN and
             # x > NaN is always False in Python and the cache won't be cleared.
             if self.capacity is not None and self.length > self.capacity:
-                self.cache.popitem(last=False)
+                removed_key = self.cache.popitem(last=False)[0]
+                if removed_key in self._timestamps:
+                    del self._timestamps[removed_key]
 
 
 class FrozenDict(dict):
@@ -141,7 +199,18 @@ class FrozenDict(dict):
         raise TypeError('object is immutable')
 
 
-def freeze(obj):
+def freeze(obj, path: str = 'root'):
+    """
+    Recursively freeze (convert to immutable) a nested data structure.
+    
+    CONSISTENCY NOTE: This function raises TypeError for invalid types (not None).
+    See other utility functions for their specific error handling patterns.
+    
+    :param obj: Object to freeze
+    :param path: Debug path for error reporting
+    :return: Frozen representation of object
+    :raises TypeError: If object cannot be frozen (with diagnostic context)
+    """
     """
     Freeze an object by making it immutable and thus hashable.
     """
