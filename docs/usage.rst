@@ -25,7 +25,10 @@ library like `pickle <http://docs.python.org/library/pickle.html>`_ or
 `PyYAML <http://pyyaml.org/>`_.
 
 .. hint:: Opening multiple TinyDB instances on the same data (e.g. with the
-   ``JSONStorage``) may result in unexpected behavior due to query caching.
+   ``JSONStorage``) may result in unexpected behavior due to query caching. Interrupted writes can
+leave a ``JSONStorage`` file truncated or corrupt, and retries are safe only when
+the storage follows the retry-safety contract. See
+``docs/changes/failure_modes.md`` for per-backend details.
    See query_caching_ on how to disable the query cache.
 
 Queries

@@ -15,6 +15,12 @@ Write a Custom Storage
 
 First, we have support for custom storages. By default TinyDB comes with an
 in-memory storage and a JSON file storage. But of course you can add your own.
+
+A custom storage must follow the retry-safety contract: ``read()`` must have no
+side effects, repeated ``write(data)`` calls with the same data must leave the
+same final state, and exceptions must propagate to the caller instead of being
+swallowed. See ``docs/changes/failure_modes.md`` for the full failure-mode
+description of each built-in backend.
 Let's look how you could add a `YAML <http://yaml.org/>`_ storage using
 `PyYAML <http://pyyaml.org/wiki/PyYAML>`_:
 
