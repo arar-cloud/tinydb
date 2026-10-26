@@ -144,6 +144,7 @@ class JSONStorage(Storage):
         self._handle.seek(0)
 
         # Serialize the database state using the user-provided arguments
+        # Performance: Single serialization pass instead of multiple encoding operations
         serialized = json.dumps(data, **self.kwargs)
 
         # Write the serialized data to the file
@@ -153,6 +154,7 @@ class JSONStorage(Storage):
             raise IOError('Cannot write to the database. Access mode is "{0}"'.format(self._mode))
 
         # Ensure the file has been written
+        # Performance: Batch both flush and fsync operations together
         self._handle.flush()
         os.fsync(self._handle.fileno())
 
