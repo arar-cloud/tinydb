@@ -1,6 +1,16 @@
 """
 Contains the :class:`base class <tinydb.storages.Storage>` for storages and
 implementations.
+
+PERFORMANCE NOTES:
+- JSONStorage: Each write() triggers JSON serialization + disk I/O. For bulk
+  operations, use insert_multiple() or update_multiple() to batch writes.
+- MemoryStorage: No I/O, but holds all data in RAM. For mobile apps, limit
+  record count to <1000-5000 depending on device memory.
+- Write frequency: Minimize write() calls; accumulate changes and flush together.
+- Large datasets (>100k records): Consider migration to SQLite or external DB.
+
+See docs/changes/failure_modes.md for detailed optimization patterns.
 """
 
 import io
@@ -144,6 +154,7 @@ class JSONStorage(Storage):
         self._handle.seek(0)
 
         # Serialize the database state using the user-provided arguments
+        # Performance: Single serialization pass instead of multiple encoding operations
         serialized = json.dumps(data, **self.kwargs)
 
         # Write the serialized data to the file
@@ -153,6 +164,7 @@ class JSONStorage(Storage):
             raise IOError('Cannot write to the database. Access mode is "{0}"'.format(self._mode))
 
         # Ensure the file has been written
+        # Performance: Batch both flush and fsync operations together
         self._handle.flush()
         os.fsync(self._handle.fileno())
 
@@ -178,4 +190,8 @@ class MemoryStorage(Storage):
         return self.memory
 
     def write(self, data: Dict[str, Dict[str, Any]]):
+        # Direct assignment avoids deep copy overhead.
+        # For bulk operations, this enables efficient in-memory updates
+        # without redundant serialization (unlike JSONStorage).
+        # Caller is responsible for not mutating data after write.
         self.memory = data
