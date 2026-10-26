@@ -1,6 +1,16 @@
 """
 Contains the :class:`base class <tinydb.storages.Storage>` for storages and
 implementations.
+
+PERFORMANCE NOTES:
+- JSONStorage: Each write() triggers JSON serialization + disk I/O. For bulk
+  operations, use insert_multiple() or update_multiple() to batch writes.
+- MemoryStorage: No I/O, but holds all data in RAM. For mobile apps, limit
+  record count to <1000-5000 depending on device memory.
+- Write frequency: Minimize write() calls; accumulate changes and flush together.
+- Large datasets (>100k records): Consider migration to SQLite or external DB.
+
+See docs/changes/failure_modes.md for detailed optimization patterns.
 """
 
 import io
