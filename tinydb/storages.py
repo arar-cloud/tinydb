@@ -180,4 +180,8 @@ class MemoryStorage(Storage):
         return self.memory
 
     def write(self, data: Dict[str, Dict[str, Any]]):
+        # Direct assignment avoids deep copy overhead.
+        # For bulk operations, this enables efficient in-memory updates
+        # without redundant serialization (unlike JSONStorage).
+        # Caller is responsible for not mutating data after write.
         self.memory = data
