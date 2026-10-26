@@ -49,6 +49,12 @@ dev = [
     "types-PyYAML~=6.0",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
 [tool.hatch.build.targets.sdist]
 include = [
     "tinydb",
@@ -59,5 +65,5 @@ include = [
 include = ["tinydb"]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.0.0"]
 build-backend = "hatchling.build"
